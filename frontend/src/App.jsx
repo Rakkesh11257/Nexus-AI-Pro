@@ -74,7 +74,17 @@ const MOTION_MODELS = [
   { id: 'wan-video/wan-2.2-animate-animation', name: 'Wan 2.2 Animate', desc: 'Character animation',
     params: { video: true, character_image: true, resolution: ['720','480'], refert_num: { default: 1, options: [1, 5] }, fps: { min: 5, max: 60, default: 24 }, go_fast: true, seed: true, merge_audio: true } },
 ];
-
+// Audio Generation models
+const AUDIO_MODELS = [
+  { id: 'elevenlabs/v3', name: 'ElevenLabs V3', desc: 'Best TTS quality',
+    params: { voice: ['Rachel','Drew','Clyde','Paul','Aria','Domi','Dave','Roger','Fin','Sarah','James','Jane','Juniper','Arabella','Hope','Bradford','Reginald','Gaming','Austin','Kuon','Blondie','Priyanka','Alexandra','Monika','Mark','Grimblewood'], stability: { min: 0, max: 1, default: 0.5 }, similarity_boost: { min: 0, max: 1, default: 0.75 }, style: { min: 0, max: 1, default: 0 }, speed: { min: 0.7, max: 1.2, default: 1 }, language_code: true } },
+  { id: 'elevenlabs/turbo-v2.5', name: 'ElevenLabs Turbo V2.5', desc: 'Fast TTS',
+    params: { voice: ['Rachel','Drew','Clyde','Paul','Aria','Domi','Dave','Roger','Fin','Sarah','James','Jane','Juniper','Arabella','Hope','Bradford','Reginald','Gaming','Austin','Kuon','Blondie','Priyanka','Alexandra','Monika','Mark','Grimblewood'], stability: { min: 0, max: 1, default: 0.5 }, similarity_boost: { min: 0, max: 1, default: 0.75 }, style: { min: 0, max: 1, default: 0 }, speed: { min: 0.7, max: 1.2, default: 1 }, language_code: true } },
+  { id: 'google/lyria-2', name: 'Google Lyria 2', desc: 'AI music generation',
+    params: { negative_prompt: true, seed: true } },
+  { id: 'zsxkib/mmaudio:62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484', name: 'MMAudio', desc: 'Video/Image to audio', useVersion: true,
+    params: { video: true, image: true, negative_prompt: true, duration: { min: 1, max: 30, default: 8 }, num_steps: { min: 1, max: 50, default: 25 }, cfg_strength: { min: 1, max: 10, default: 4.5 }, seed: true } },
+];
 // Transcribe models
 const TRANSCRIBE_MODELS = [
   { id: 'openai/gpt-4o-transcribe', name: 'GPT-4o Transcribe', desc: 'OpenAI latest transcription',
@@ -448,6 +458,15 @@ function App() {
   const [motionImage, setMotionImage] = useState(null);
   const [motionVideo, setMotionVideo] = useState(null);
   const [motionOpts, setMotionOpts] = useState({});
+
+  // Audio Generation
+  const [audioModel, setAudioModel] = useState(AUDIO_MODELS[0].id);
+  const [audioPrompt, setAudioPrompt] = useState('');
+  const [audioNegPrompt, setAudioNegPrompt] = useState('');
+  const [audioOpts, setAudioOpts] = useState({});
+  const [audioVideo, setAudioVideo] = useState(null);
+  const [audioImage, setAudioImage] = useState(null);
+  const [audioResults, setAudioResults] = useState([]);
 
   // Transcribe
   const [transcribeModel, setTranscribeModel] = useState(TRANSCRIBE_MODELS[0].id);
@@ -1164,6 +1183,79 @@ function App() {
     } catch (err) { setError(err.message); finishJob(jobId, err.message); }
   };
 
+  // ─── Generate Audio ───
+  const generateAudio = async () => {
+    if (!audioPrompt.trim()) return setError('Enter text or a prompt');
+    if (!canGenerate()) return;
+    const modelCfg = AUDIO_MODELS.find(m => m.id === audioModel);
+    const p = modelCfg?.params || {};
+    const isEL = audioModel.includes('elevenlabs');
+    const isLyria = audioModel.includes('lyria');
+    const isMM = audioModel.includes('mmaudio');
+    const jobId = addJob('audio', audioModel, audioPrompt.trim());
+    setError('');
+    try {
+      const input = { prompt: audioPrompt.trim() };
+      // ElevenLabs params
+      if (isEL) {
+        input.voice = audioOpts.voice || 'Rachel';
+        input.stability = audioOpts.stability ?? 0.5;
+        input.similarity_boost = audioOpts.similarity_boost ?? 0.75;
+        input.style = audioOpts.style ?? 0;
+        input.speed = audioOpts.speed ?? 1;
+        if (audioOpts.language_code?.trim()) input.language_code = audioOpts.language_code.trim();
+      }
+      // Lyria params
+      if (isLyria) {
+        if (audioNegPrompt.trim()) input.negative_prompt = audioNegPrompt.trim();
+        if (audioOpts.seed) input.seed = parseInt(audioOpts.seed);
+      }
+      // MMAudio params
+      if (isMM) {
+        if (audioNegPrompt.trim()) input.negative_prompt = audioNegPrompt.trim();
+        else input.negative_prompt = 'music';
+        input.duration = audioOpts.duration ?? 8;
+        input.num_steps = audioOpts.num_steps ?? 25;
+        input.cfg_strength = audioOpts.cfg_strength ?? 4.5;
+        if (audioOpts.seed) input.seed = parseInt(audioOpts.seed);
+        if (audioVideo) {
+          updateJob(jobId, { status: 'Uploading video...' });
+          input.video = await uploadToReplicate(audioVideo, 'video/mp4');
+        }
+        if (audioImage) {
+          updateJob(jobId, { status: 'Uploading image...' });
+          input.image = audioImage.startsWith('blob:') ? await toDataUri(audioImage) : audioImage;
+        }
+      }
+      updateJob(jobId, { status: 'Generating audio...' });
+      // Version-based model (MMAudio)
+      let reqBody;
+      if (modelCfg?.useVersion && audioModel.includes(':')) {
+        reqBody = { version: audioModel.split(':')[1], input };
+      } else {
+        reqBody = { model: audioModel, input };
+      }
+      const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(reqBody),
+      });
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (!res.ok) throw new Error(await parseApiError(res));
+      let pred = await res.json();
+      while (pred.status !== 'succeeded' && pred.status !== 'failed') {
+        updateJob(jobId, { status: `${pred.status}...` });
+        await new Promise(r => setTimeout(r, 2500));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
+        pred = await poll.json();
+      }
+      if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
+      const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
+      const item = { url, prompt: audioPrompt.trim(), model: audioModel, ts: Date.now() };
+      setAudioResults(prev => [item, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
   // ─── Generate Transcription ───
   const generateTranscribe = async () => {
     if (!transcribeAudio) return setError('Upload an audio file');
@@ -1251,7 +1343,7 @@ function App() {
       <div style={S.container}>
         {/* Tabs */}
         <div style={S.tabs}>
-          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
+          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'audio',icon:'🔊',label:'Audio Gen'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '8px 12px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
               {t.icon} {t.label}
               {jobs.some(j => j.tab === t.id && !j.done) && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#667eea', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
@@ -1567,6 +1659,142 @@ function App() {
                   <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
                     <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
                     <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* ══ AUDIO GEN TAB ══ */}
+        {tab === 'audio' && (() => {
+          const modelCfg = AUDIO_MODELS.find(m => m.id === audioModel);
+          const p = modelCfg?.params || {};
+          const isEL = audioModel.includes('elevenlabs');
+          const isLyria = audioModel.includes('lyria');
+          const isMM = audioModel.includes('mmaudio');
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          return (
+          <div>
+            <select value={audioModel} onChange={e => { setAudioModel(e.target.value); setAudioOpts({}); setAudioNegPrompt(''); setAudioVideo(null); setAudioImage(null); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
+              {AUDIO_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}</option>)}
+            </select>
+
+            {/* Prompt */}
+            <textarea style={{ ...S.input, minHeight: isEL ? 80 : 60 }} placeholder={isEL ? 'Enter text to speak...' : isLyria ? 'Describe the music you want...' : 'Describe the audio/sound...'} value={audioPrompt} onChange={e => setAudioPrompt(e.target.value)} />
+
+            {/* Negative Prompt (Lyria & MMAudio) */}
+            {(isLyria || isMM) && (
+              <textarea style={{ ...S.input, minHeight: 40, marginTop: 8 }} placeholder={isMM ? 'Negative prompt (default: music)...' : 'Negative prompt (optional)...'} value={audioNegPrompt} onChange={e => setAudioNegPrompt(e.target.value)} />
+            )}
+
+            {/* ElevenLabs options */}
+            {isEL && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label style={S.label}>Voice</label>
+                  <select value={audioOpts.voice || 'Rachel'} onChange={e => setAudioOpts(o => ({...o, voice: e.target.value}))} style={{ ...S.select, width: '100%' }}>
+                    {p.voice?.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.label}>Stability: {audioOpts.stability ?? 0.5}</label>
+                  <input type="range" min={0} max={1} step={0.05} value={audioOpts.stability ?? 0.5} onChange={e => setAudioOpts(o => ({...o, stability: +e.target.value}))} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>Variable</span><span>Stable</span></div>
+                </div>
+                <div>
+                  <label style={S.label}>Similarity: {audioOpts.similarity_boost ?? 0.75}</label>
+                  <input type="range" min={0} max={1} step={0.05} value={audioOpts.similarity_boost ?? 0.75} onChange={e => setAudioOpts(o => ({...o, similarity_boost: +e.target.value}))} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>Low</span><span>High</span></div>
+                </div>
+                <div>
+                  <label style={S.label}>Style: {audioOpts.style ?? 0}</label>
+                  <input type="range" min={0} max={1} step={0.05} value={audioOpts.style ?? 0} onChange={e => setAudioOpts(o => ({...o, style: +e.target.value}))} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>None</span><span>Exaggerated</span></div>
+                </div>
+                <div>
+                  <label style={S.label}>Speed: {audioOpts.speed ?? 1}x</label>
+                  <input type="range" min={0.7} max={1.2} step={0.05} value={audioOpts.speed ?? 1} onChange={e => setAudioOpts(o => ({...o, speed: +e.target.value}))} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label style={S.label}>Language</label>
+                  <input style={S.input} placeholder="en" value={audioOpts.language_code || ''} onChange={e => setAudioOpts(o => ({...o, language_code: e.target.value}))} />
+                </div>
+              </div>
+            )}
+
+            {/* MMAudio options */}
+            {isMM && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label style={S.label}>Duration: {audioOpts.duration ?? 8}s</label>
+                  <input type="range" min={1} max={30} step={1} value={audioOpts.duration ?? 8} onChange={e => setAudioOpts(o => ({...o, duration: +e.target.value}))} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>1s</span><span>30s</span></div>
+                </div>
+                <div>
+                  <label style={S.label}>Steps: {audioOpts.num_steps ?? 25}</label>
+                  <input type="range" min={1} max={50} step={1} value={audioOpts.num_steps ?? 25} onChange={e => setAudioOpts(o => ({...o, num_steps: +e.target.value}))} style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label style={S.label}>CFG Strength: {audioOpts.cfg_strength ?? 4.5}</label>
+                  <input type="range" min={1} max={10} step={0.5} value={audioOpts.cfg_strength ?? 4.5} onChange={e => setAudioOpts(o => ({...o, cfg_strength: +e.target.value}))} style={{ width: '100%' }} />
+                </div>
+                {/* Video upload */}
+                <div>
+                  <label style={S.label}>Video (optional — for video-to-audio)</label>
+                  {audioVideo ? (
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <video src={audioVideo} style={{ maxHeight: 120, borderRadius: 8, border: '1px solid #333' }} controls playsInline />
+                      <button onClick={() => setAudioVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'block', padding: '16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18', fontSize: 13 }}>
+                      🎬 Upload video
+                      <input type="file" accept="video/*" onChange={e => { if(e.target.files?.[0]) setAudioVideo(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
+                {/* Image upload */}
+                <div>
+                  <label style={S.label}>Image (optional — experimental)</label>
+                  {audioImage ? (
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <img src={audioImage} alt="" style={{ maxHeight: 120, borderRadius: 8, border: '1px solid #333' }} />
+                      <button onClick={() => setAudioImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'block', padding: '16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18', fontSize: 13 }}>
+                      🖼️ Upload image
+                      <input type="file" accept="image/*" onChange={e => { if(e.target.files?.[0]) setAudioImage(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Seed (Lyria & MMAudio) */}
+            {(isLyria || isMM) && (
+              <div style={{ marginTop: 10 }}>
+                <label style={S.label}>Seed (optional)</label>
+                <input style={S.input} type="number" placeholder="Random" value={audioOpts.seed || ''} onChange={e => setAudioOpts(o => ({...o, seed: e.target.value}))} />
+              </div>
+            )}
+
+            <button onClick={generateAudio} style={{ ...S.btn, marginTop: 12 }}>
+              🔊 Generate Audio
+            </button>
+
+            {/* Audio results */}
+            {audioResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+                {audioResults.map((item, i) => (
+                  <div key={i} style={{ background: '#111827', borderRadius: 10, padding: 12, border: '1px solid #1f2937' }}>
+                    <audio src={item.url} controls style={{ width: '100%', marginBottom: 6 }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ fontSize: 12, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>{item.prompt}</p>
+                      <a href={item.url} download target="_blank" rel="noopener noreferrer" style={{ ...S.btnSm, textDecoration: 'none', fontSize: 11 }}>⬇ Download</a>
+                    </div>
                   </div>
                 ))}
               </div>
