@@ -506,6 +506,7 @@ function App() {
   const [results, setResults] = useState([]);
   const [viewerItem, setViewerItem] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [downloadNotice, setDownloadNotice] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('replicate_api_key') || '');
   const [history, setHistory] = useState(() => {
@@ -1359,6 +1360,15 @@ function App() {
           <div style={{ padding: '16px 20px', background: 'rgba(102,126,234,0.1)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="animate-spin" style={{ width: 20, height: 20, border: '2px solid #333', borderTopColor: '#667eea', borderRadius: '50%', flexShrink: 0 }} />
             <span style={{ color: '#aaa', fontSize: 14 }}>{loadingStatus || 'Generating...'}</span>
+          </div>
+        )}
+
+        {/* Download reminder - shows when new results exist */}
+        {!downloadNotice && results.length > 0 && (
+          <div style={{ padding: '10px 14px', background: 'rgba(250,204,21,0.08)', border: '1px solid rgba(250,204,21,0.2)', borderRadius: 8, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+            <span style={{ color: '#d4a937', fontSize: 12, flex: 1, lineHeight: 1.4 }}>For your privacy, we don’t store media on our servers. Generated files are temporary and will expire soon — please <b>download</b> them before they’re gone!</span>
+            <span onClick={() => setDownloadNotice(true)} style={{ cursor: 'pointer', color: '#d4a937', opacity: 0.6, fontSize: 14, flexShrink: 0 }}>✕</span>
           </div>
         )}
 
