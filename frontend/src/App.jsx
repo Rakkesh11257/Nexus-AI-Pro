@@ -13,6 +13,7 @@ const IMAGE_MODELS = [
   { id: 'prunaai/wan-2.2-image', name: 'Wan 2.2 Image', desc: 'Wan T2I model', maxSteps: 50, nsfw: true },
   { id: 'ideogram-ai/ideogram-v3-quality', name: 'Ideogram V3 Quality', desc: 'Best text rendering', maxSteps: 50, nsfw: false },
   { id: 'stability-ai/stable-diffusion-3.5-large', name: 'SD 3.5 Large', desc: 'Stability AI latest', maxSteps: 50, nsfw: false },
+  { id: 'bytedance/sdxl-lightning-4step', name: 'SDXL Lightning 4-Step', desc: 'Ultra fast SDXL (~2s)', maxSteps: 10, nsfw: true },
 ];
 const I2I_MODELS = [
   { id: 'qwen/qwen-image', name: 'Qwen Image', desc: 'LoRA + img2img', nsfw: false },
@@ -535,6 +536,12 @@ function App() {
       const input = { prompt: prompt.trim(), width: asp.w, height: asp.h, num_outputs: 1 };
       if (negPrompt.trim()) input.negative_prompt = negPrompt.trim();
       if (model.includes('schnell')) input.num_inference_steps = Math.min(steps, 4);
+      else if (model.includes('sdxl-lightning')) {
+        input.num_inference_steps = Math.min(steps, 10);
+        input.guidance_scale = 0;
+        input.scheduler = 'K_EULER';
+        input.disable_safety_checker = true;
+      }
       else { input.num_inference_steps = steps; input.guidance_scale = guidance; }
       if (seed) input.seed = parseInt(seed);
 
