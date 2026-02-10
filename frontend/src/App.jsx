@@ -100,8 +100,7 @@ const TRANSCRIBE_MODELS = [
     params: { audio_file: true, prompt: true, language: true, temperature: { min: 0, max: 1, default: 0 } } },
   { id: 'openai/whisper:8099696689d249cf8b122d833c36ac3f75505c666a395ca40ef26f68e7d3d16e', name: 'OpenAI Whisper', desc: 'Classic speech-to-text', useVersion: true,
     params: { audio: true, transcription: ['plain text','srt','vtt'], translate: false, language: true, temperature: { default: 0 }, condition_on_previous_text: true } },
-  { id: 'google/gemini-3-pro', name: 'Gemini 3 Pro', desc: 'Multimodal transcription',
-    params: { prompt: true, audio: true, system_instruction: true, thinking_level: ['low','high'], temperature: { min: 0, max: 2, default: 1 }, max_output_tokens: { default: 65535, max: 65535 } } },
+
 ];
 // Text/Chat models
 const TEXT_MODELS = [
@@ -1263,7 +1262,7 @@ function App() {
       const audioData = transcribeAudio.startsWith('blob:') ? await toDataUri(transcribeAudio) : transcribeAudio;
       const isGPT4o = transcribeModel.includes('gpt-4o');
       const isWhisper = transcribeModel.includes('whisper');
-      const isGemini = transcribeModel.includes('gemini');
+
       const curTransModel = TRANSCRIBE_MODELS.find(m => m.id === transcribeModel);
       if (isGPT4o) {
         input.audio_file = audioData;
@@ -1278,22 +1277,6 @@ function App() {
         else input.language = 'auto';
         input.temperature = transcribeOpts.temperature ?? 0;
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
-      } else if (isGemini) {
-        // Gemini needs a URL with correct content-type (data URIs fail with octet-stream)
-        let audioMime = transcribeAudioMime || 'audio/mpeg';
-        if (audioMime.startsWith('video/')) audioMime = audioMime.replace('video/', 'audio/');
-        if (audioMime === 'application/octet-stream' || !audioMime.startsWith('audio/')) audioMime = 'audio/mpeg';
-        updateJob(jobId, { status: 'Uploading audio...' });
-        const audioUrl = await uploadToReplicate(transcribeAudio, audioMime);
-        input.audio = audioUrl;
-        input.images = [];
-        input.videos = [];
-        input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
-        if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
-        input.thinking_level = transcribeOpts.thinking_level || 'low';
-        input.temperature = transcribeOpts.temperature ?? 1;
-        input.top_p = 0.95;
-        input.max_output_tokens = transcribeOpts.max_output_tokens || 65535;
       }
       updateJob(jobId, { status: 'Transcribing...' });
       // Version-based models (Whisper) need version field
@@ -1792,7 +1775,7 @@ function App() {
         {tab === 'transcribe' && (() => {
           const isGPT4o = transcribeModel.includes('gpt-4o');
           const isWhisper = transcribeModel.includes('whisper');
-          const isGemini = transcribeModel.includes('gemini');
+
           const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
           return (
@@ -1811,15 +1794,15 @@ function App() {
                 </div>
               ) : (
                 <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
-                  🎙️ Upload audio file<br/><span style={{ fontSize: 11, color: '#555' }}>{isGPT4o ? 'MP3, MP4, WAV, WEBM, OGG' : isWhisper ? 'MP3, MP4, WAV, WEBM, OGG' : 'Audio file (up to 8.4 hours)'}</span>
+                  🎙️ Upload audio file<br/><span style={{ fontSize: 11, color: '#555' }}>MP3, MP4, WAV, WEBM, OGG</span>
                   <input type="file" accept="audio/*,.mp3,.mp4,.wav,.ogg,.webm,.m4a,.mpeg,.mpga" onChange={e => { const f = e.target.files?.[0]; if(f) { setTranscribeAudio(URL.createObjectURL(f)); setTranscribeAudioMime(f.type || 'audio/mpeg'); } }} style={{ display: 'none' }} />
                 </label>
               )}
             </div>
 
             {/* Prompt */}
-            {(isGPT4o || isGemini) && (
-              <textarea style={{ ...S.input, minHeight: 50, marginBottom: 12 }} placeholder={isGemini ? 'Prompt (e.g. Transcribe this audio accurately)...' : 'Optional prompt to guide transcription style...'} value={transcribePrompt} onChange={e => setTranscribePrompt(e.target.value)} />
+            {isGPT4o && (
+              <textarea style={{ ...S.input, minHeight: 50, marginBottom: 12 }} placeholder="Optional prompt to guide transcription style..." value={transcribePrompt} onChange={e => setTranscribePrompt(e.target.value)} />
             )}
 
             {/* Model-specific options */}
@@ -1846,23 +1829,10 @@ function App() {
                 </>
               )}
 
-              {/* Gemini-specific */}
-              {isGemini && (
-                <>
-                  <textarea style={{ ...S.input, minHeight: 36, fontSize: 12 }} placeholder="System instruction (optional)..." value={transcribeOpts.system_instruction||''} onChange={e => setTranscribeOpts(p => ({...p, system_instruction: e.target.value}))} />
-                  <div>
-                    <label style={S.label}>Thinking Level</label>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {['low','high'].map(t => <button key={t} onClick={() => setTranscribeOpts(p => ({...p, thinking_level: t}))} style={btnSt((transcribeOpts.thinking_level||'low')===t)}>{t}</button>)}
-                    </div>
-                  </div>
-                </>
-              )}
-
               {/* Temperature (all models) */}
               <div>
-                <label style={S.label}>Temperature: {transcribeOpts.temperature ?? (isGemini ? 1 : 0)}</label>
-                <input type="range" min={0} max={isGemini ? 2 : 1} step={0.1} value={transcribeOpts.temperature ?? (isGemini ? 1 : 0)} onChange={e => setTranscribeOpts(p => ({...p, temperature: +e.target.value}))} style={{ width: '100%' }} />
+                <label style={S.label}>Temperature: {transcribeOpts.temperature ?? 0}</label>
+                <input type="range" min={0} max={1} step={0.1} value={transcribeOpts.temperature ?? 0} onChange={e => setTranscribeOpts(p => ({...p, temperature: +e.target.value}))} style={{ width: '100%' }} />
               </div>
             </div>
 
