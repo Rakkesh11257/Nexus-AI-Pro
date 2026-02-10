@@ -554,20 +554,35 @@ const requirePaid = async (req, res, next) => {
 app.post('/api/replicate/upload', requirePaid, async (req, res) => {
   try {
     const apiKey = req.headers['authorization'];
-    const { data, content_type } = req.body;
+    const { data, content_type, filename } = req.body;
     if (!data) return res.status(400).json({ error: 'No file data provided' });
 
     // Strip data URI prefix to get raw base64
     const base64 = data.includes(',') ? data.split(',')[1] : data;
     const buffer = Buffer.from(base64, 'base64');
 
-    // Upload to Replicate Files API
+    // Determine filename with correct extension for content-type detection
+    const extMap = {
+      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3',
+      'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
+      'audio/mp4': '.m4a', 'audio/m4a': '.m4a', 'audio/aac': '.aac',
+      'audio/webm': '.webm', 'audio/flac': '.flac', 'image/png': '.png',
+      'image/jpeg': '.jpg', 'image/webp': '.webp',
+    };
+    const ext = extMap[content_type] || '';
+    const uploadFilename = filename || `upload_${Date.now()}${ext}`;
+
+    // Upload to Replicate Files API with filename
+    const headers = {
+      'Authorization': apiKey,
+      'Content-Type': content_type || 'application/octet-stream',
+    };
+    if (uploadFilename) {
+      headers['Content-Disposition'] = `attachment; filename="${uploadFilename}"`;
+    }
     const createRes = await fetch('https://api.replicate.com/v1/files', {
       method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': content_type || 'application/octet-stream',
-      },
+      headers,
       body: buffer,
     });
 
@@ -578,8 +593,8 @@ app.post('/api/replicate/upload', requirePaid, async (req, res) => {
     }
 
     const fileData = await createRes.json();
-    console.log('>>> Replicate file uploaded:', fileData.id, fileData.urls?.get);
-    res.json({ url: fileData.urls?.get, id: fileData.id });
+    console.log('>>> Replicate file uploaded:', fileData.id, 'content_type:', fileData.content_type, 'url:', fileData.urls?.get);
+    res.json({ url: fileData.urls?.get, id: fileData.id, content_type: fileData.content_type });
   } catch (err) {
     console.error('File upload error:', err.message);
     res.status(502).json({ error: 'Failed to upload file: ' + err.message });

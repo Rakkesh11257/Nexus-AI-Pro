@@ -1278,18 +1278,20 @@ function App() {
         input.temperature = transcribeOpts.temperature ?? 0;
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
       } else if (isGemini) {
-        // Gemini needs a proper URL with correct content-type (not base64 data URI)
+        // Upload audio to get a URL (Gemini on Replicate needs URL, not base64)
         let audioMime = transcribeAudioMime || 'audio/mpeg';
         if (audioMime.startsWith('video/')) audioMime = audioMime.replace('video/', 'audio/');
         if (audioMime === 'application/octet-stream' || !audioMime.startsWith('audio/')) audioMime = 'audio/mpeg';
         updateJob(jobId, { status: 'Uploading audio...' });
         const audioUrl = await uploadToReplicate(transcribeAudio, audioMime);
         input.audio = audioUrl;
-        input.mime_type = audioMime;
+        input.images = [];
+        input.videos = [];
         input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
         if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
         input.thinking_level = transcribeOpts.thinking_level || 'low';
         input.temperature = transcribeOpts.temperature ?? 1;
+        input.top_p = 0.95;
         input.max_output_tokens = transcribeOpts.max_output_tokens || 65535;
       }
       updateJob(jobId, { status: 'Transcribing...' });
