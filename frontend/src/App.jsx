@@ -98,7 +98,7 @@ const KLING_VOICES = [
 const TRANSCRIBE_MODELS = [
   { id: 'openai/gpt-4o-transcribe', name: 'GPT-4o Transcribe', desc: 'OpenAI latest transcription',
     params: { audio_file: true, prompt: true, language: true, temperature: { min: 0, max: 1, default: 0 } } },
-  { id: 'openai/whisper', name: 'OpenAI Whisper', desc: 'Classic speech-to-text',
+  { id: 'openai/whisper:8099696689d249cf8b122d833c36ac3f75505c666a395ca40ef26f68e7d3d16e', name: 'OpenAI Whisper', desc: 'Classic speech-to-text', useVersion: true,
     params: { audio: true, transcription: ['plain text','srt','vtt'], translate: false, language: true, temperature: { default: 0 }, condition_on_previous_text: true } },
   { id: 'google/gemini-3-pro', name: 'Gemini 3 Pro', desc: 'Multimodal transcription',
     params: { prompt: true, audio: true, system_instruction: true, thinking_level: ['low','high'], temperature: { min: 0, max: 2, default: 1 }, max_output_tokens: { default: 65535, max: 65535 } } },
@@ -1262,6 +1262,7 @@ function App() {
       const isGPT4o = transcribeModel.includes('gpt-4o');
       const isWhisper = transcribeModel.includes('whisper');
       const isGemini = transcribeModel.includes('gemini');
+      const curTransModel = TRANSCRIBE_MODELS.find(m => m.id === transcribeModel);
       if (isGPT4o) {
         input.audio_file = audioData;
         if (transcribePrompt.trim()) input.prompt = transcribePrompt.trim();
@@ -1277,6 +1278,9 @@ function App() {
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
       } else if (isGemini) {
         input.audio = audioData;
+        // Gemini requires mime_type for audio files
+        const mimeMatch = audioData.match(/^data:([^;]+);/);
+        input.mime_type = mimeMatch ? mimeMatch[1] : 'audio/mpeg';
         input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
         if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
         input.thinking_level = transcribeOpts.thinking_level || 'low';
@@ -1284,9 +1288,17 @@ function App() {
         input.max_output_tokens = transcribeOpts.max_output_tokens || 65535;
       }
       updateJob(jobId, { status: 'Transcribing...' });
+      // Version-based models (Whisper) need version field
+      let reqBody;
+      if (curTransModel?.useVersion && transcribeModel.includes(':')) {
+        const version = transcribeModel.split(':')[1];
+        reqBody = { version, input };
+      } else {
+        reqBody = { model: transcribeModel, input };
+      }
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: transcribeModel, input }),
+        body: JSON.stringify(reqBody),
       });
       if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
