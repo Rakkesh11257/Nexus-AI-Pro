@@ -1279,8 +1279,11 @@ function App() {
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
       } else if (isGemini) {
         input.audio = audioData;
-        // Gemini requires mime_type for audio files — use stored file type
-        input.mime_type = transcribeAudioMime || 'audio/mpeg';
+        // Gemini requires mime_type — map video types to audio equivalents
+        let audioMime = transcribeAudioMime || 'audio/mpeg';
+        if (audioMime.startsWith('video/')) audioMime = audioMime.replace('video/', 'audio/');
+        if (audioMime === 'application/octet-stream') audioMime = 'audio/mpeg';
+        input.mime_type = audioMime;
         input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
         if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
         input.thinking_level = transcribeOpts.thinking_level || 'low';
