@@ -1364,8 +1364,8 @@ function App() {
               )}
             </div>
 
-            <button onClick={generateImage} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '✨ Generate Image'}
+            <button onClick={generateImage} style={S.btn}>
+              ✨ Generate Image
             </button>
 
             {/* Results */}
@@ -1423,8 +1423,8 @@ function App() {
               <textarea style={{ ...S.input, minHeight: 40 }} placeholder="Negative prompt (optional)..." value={i2iNegPrompt} onChange={e => setI2iNegPrompt(e.target.value)} />
             </div>
 
-            <button onClick={generateI2I} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '🔄 Generate Image to Image'}
+            <button onClick={generateI2I} style={S.btn}>
+              🔄 Generate Image to Image
             </button>
 
             {results.filter(r => r.type === 'image').length > 0 && (
@@ -1484,8 +1484,8 @@ function App() {
 
             {renderVideoOpts(I2V_MODELS.find(m => m.id === i2vModel), i2vOpts, setI2vOpts, i2vOpts.negative_prompt, (v) => setI2vOpts(o => ({ ...o, negative_prompt: v })))}
 
-            <button onClick={generateI2V} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '🖼️ Generate Image to Video'}
+            <button onClick={generateI2V} style={S.btn}>
+              🖼️ Generate Image to Video
             </button>
 
             {results.filter(r => r.type === 'video').length > 0 && (
@@ -1512,8 +1512,8 @@ function App() {
 
             {renderVideoOpts(T2V_MODELS.find(m => m.id === t2vModel), t2vOpts, setT2vOpts, t2vNegPrompt, setT2vNegPrompt)}
 
-            <button onClick={generateT2V} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '🎬 Generate Text to Video'}
+            <button onClick={generateT2V} style={S.btn}>
+              🎬 Generate Text to Video
             </button>
 
             {results.filter(r => r.type === 'video').length > 0 && (
@@ -1621,8 +1621,8 @@ function App() {
               )}
             </div>
 
-            <button onClick={generateMotion} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '🎭 Generate Motion Control'}
+            <button onClick={generateMotion} style={S.btn}>
+              🎭 Generate Motion Control
             </button>
 
             {results.filter(r => r.type === 'video').length > 0 && (
@@ -1731,8 +1731,8 @@ function App() {
               </div>
             )}
 
-            <button onClick={generateLipsync} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Generating...' : '👄 Generate Lip Sync'}
+            <button onClick={generateLipsync} style={S.btn}>
+              👄 Generate Lip Sync
             </button>
 
             {results.filter(r => r.type === 'video').length > 0 && (
@@ -1827,8 +1827,8 @@ function App() {
               </div>
             </div>
 
-            <button onClick={generateTranscribe} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Transcribing...' : '🎙️ Transcribe Audio'}
+            <button onClick={generateTranscribe} style={S.btn}>
+              🎙️ Transcribe Audio
             </button>
 
             {/* Transcription result */}
