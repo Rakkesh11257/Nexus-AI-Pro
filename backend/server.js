@@ -161,7 +161,7 @@ app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), asyn
   }
 });
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
 
 // Debug: log all /api requests
 app.use('/api', (req, res, next) => {
@@ -547,6 +547,44 @@ const requirePaid = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
+
+// ============================================
+// REPLICATE FILE UPLOAD (for video/audio → URL)
+// ============================================
+app.post('/api/replicate/upload', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const { data, content_type } = req.body;
+    if (!data) return res.status(400).json({ error: 'No file data provided' });
+
+    // Strip data URI prefix to get raw base64
+    const base64 = data.includes(',') ? data.split(',')[1] : data;
+    const buffer = Buffer.from(base64, 'base64');
+
+    // Upload to Replicate Files API
+    const createRes = await fetch('https://api.replicate.com/v1/files', {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': content_type || 'application/octet-stream',
+      },
+      body: buffer,
+    });
+
+    if (!createRes.ok) {
+      const errData = await createRes.json().catch(() => ({}));
+      console.error('Replicate upload error:', createRes.status, errData);
+      return res.status(createRes.status).json({ error: errData.detail || errData.error || `Upload failed (${createRes.status})` });
+    }
+
+    const fileData = await createRes.json();
+    console.log('>>> Replicate file uploaded:', fileData.id, fileData.urls?.get);
+    res.json({ url: fileData.urls?.get, id: fileData.id });
+  } catch (err) {
+    console.error('File upload error:', err.message);
+    res.status(502).json({ error: 'Failed to upload file: ' + err.message });
+  }
+});
 
 // Create prediction
 app.post('/api/replicate/predictions', requirePaid, async (req, res) => {

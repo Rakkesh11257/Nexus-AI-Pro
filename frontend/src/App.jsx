@@ -735,6 +735,20 @@ function App() {
     return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
   };
 
+  // ─── Helper: upload file to Replicate and get URL (for video/audio that need URLs) ───
+  const uploadToReplicate = async (blobOrDataUri, contentType = 'video/mp4') => {
+    const dataUri = blobOrDataUri.startsWith('blob:') ? await toDataUri(blobOrDataUri) : blobOrDataUri;
+    const res = await fetch(`${API_BASE}/api/replicate/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ data: dataUri, content_type: contentType }),
+    });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `File upload failed (${res.status})`); }
+    const result = await res.json();
+    if (!result.url) throw new Error('Upload succeeded but no URL returned');
+    return result.url;
+  };
+
   // ─── Helper: build video input from model config ───
   const buildVideoInput = async (modelCfg, opts, prompt, negPrompt, image, lastFrame, jobId) => {
     const p = modelCfg.params || {};
@@ -1131,15 +1145,15 @@ function App() {
     try {
       const input = {};
       if (motionPrompt.trim()) input.prompt = motionPrompt.trim();
-      // Image
-      updateJob(jobId, { status: 'Preparing image...' });
-      const imgData = motionImage.startsWith('blob:') ? await toDataUri(motionImage) : motionImage;
-      if (isKling) input.image = imgData;
-      else input.character_image = imgData;
-      // Video
-      updateJob(jobId, { status: 'Preparing video...' });
-      const vidData = motionVideo.startsWith('blob:') ? await toDataUri(motionVideo) : motionVideo;
-      input.video = vidData;
+      // Image — upload to get URL for Kling models
+      updateJob(jobId, { status: 'Uploading image...' });
+      const imgUrl = await uploadToReplicate(motionImage, 'image/png');
+      if (isKling) input.image = imgUrl;
+      else input.character_image = imgUrl;
+      // Video — upload to get URL (Kling requires URL, not base64)
+      updateJob(jobId, { status: 'Uploading video...' });
+      const vidUrl = await uploadToReplicate(motionVideo, 'video/mp4');
+      input.video = vidUrl;
       // Model-specific params
       if (isKling) {
         input.character_orientation = motionOpts.character_orientation || 'image';
@@ -1190,18 +1204,23 @@ function App() {
     try {
       const input = {};
       if (isKling) {
-        if (lipsyncVideo) { const d = lipsyncVideo.startsWith('blob:') ? await toDataUri(lipsyncVideo) : lipsyncVideo; input.video_url = d; }
-        else if (lipsyncOpts.video_url?.trim()) input.video_url = lipsyncOpts.video_url.trim();
-        if (lipsyncAudio) { input.audio_file = lipsyncAudio.startsWith('blob:') ? await toDataUri(lipsyncAudio) : lipsyncAudio; }
-        else if (lipsyncText.trim()) {
+        if (lipsyncVideo) {
+          updateJob(jobId, { status: 'Uploading video...' });
+          input.video_url = await uploadToReplicate(lipsyncVideo, 'video/mp4');
+        } else if (lipsyncOpts.video_url?.trim()) input.video_url = lipsyncOpts.video_url.trim();
+        if (lipsyncAudio) {
+          updateJob(jobId, { status: 'Uploading audio...' });
+          input.audio_file = await uploadToReplicate(lipsyncAudio, 'audio/mpeg');
+        } else if (lipsyncText.trim()) {
           input.text = lipsyncText.trim();
           input.voice_id = lipsyncOpts.voice_id || 'en_AOT';
           input.voice_speed = lipsyncOpts.voice_speed || 1;
         }
       } else {
-        updateJob(jobId, { status: 'Preparing files...' });
-        input.video = lipsyncVideo.startsWith('blob:') ? await toDataUri(lipsyncVideo) : lipsyncVideo;
-        input.audio = lipsyncAudio.startsWith('blob:') ? await toDataUri(lipsyncAudio) : lipsyncAudio;
+        updateJob(jobId, { status: 'Uploading video...' });
+        input.video = await uploadToReplicate(lipsyncVideo, 'video/mp4');
+        updateJob(jobId, { status: 'Uploading audio...' });
+        input.audio = await uploadToReplicate(lipsyncAudio, 'audio/mpeg');
         if (isSync) {
           input.sync_mode = lipsyncOpts.sync_mode || 'loop';
           input.temperature = lipsyncOpts.temperature ?? 0.5;
