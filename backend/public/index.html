@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>NEXUS AI Pro - AI Image & Video Generator</title>
+    
+    <!-- PWA Meta -->
+    <meta name="theme-color" content="#8b5cf6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NEXUS AI" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Icons -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <style>
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { margin: 0; padding: 0; overflow-x: hidden; }
+      body { background: #0d0d1a; }
+      input, textarea, select, button { font-family: inherit; }
+      /* Hide scrollbar on tabs */
+      .tabs-scroll::-webkit-scrollbar { display: none; }
+      /* Spin animation */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .animate-spin { animation: spin 1s linear infinite; }
+      /* Mobile-friendly range inputs */
+      input[type="range"] { -webkit-appearance: none; height: 6px; background: #333; border-radius: 3px; outline: none; }
+      input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #667eea; cursor: pointer; }
+      input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #667eea; cursor: pointer; border: none; }
+      /* Prevent iOS zoom on input focus */
+      @media screen and (max-width: 640px) {
+        input, textarea, select { font-size: 16px !important; }
+        video { max-width: 100%; }
+      }
+      /* Smooth scrolling */
+      html { scroll-behavior: smooth; }
+    </style>
+    <script type="module" crossorigin src="/assets/index-Ca7F2oee.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DvPU2NSa.css">
+  </head>
+  <body>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <div id="root"></div>
+    <script>
+      // Register Service Worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

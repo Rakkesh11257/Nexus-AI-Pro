@@ -74,26 +74,7 @@ const MOTION_MODELS = [
   { id: 'wan-video/wan-2.2-animate-animation', name: 'Wan 2.2 Animate', desc: 'Character animation',
     params: { video: true, character_image: true, resolution: ['720','480'], refert_num: { default: 1, options: [1, 5] }, fps: { min: 5, max: 60, default: 24 }, go_fast: true, seed: true, merge_audio: true } },
 ];
-// Lip Sync models
-const LIPSYNC_MODELS = [
-  { id: 'kwaivgi/kling-lip-sync', name: 'Kling Lip Sync', desc: 'Text/Audio lip sync',
-    params: { video_url: true, audio_file: true, text: true, voice_id: true, voice_speed: { min: 0.8, max: 2, default: 1 } } },
-  { id: 'sync/lipsync-2-pro', name: 'Lipsync 2 Pro', desc: 'Pro audio lip sync',
-    params: { video: true, audio: true, sync_mode: ['loop','bounce','cut_off','silence','remap'], temperature: { min: 0, max: 1, default: 0.5 }, active_speaker: false } },
-  { id: 'pixverse/lipsync', name: 'PixVerse Lipsync', desc: 'Simple video+audio sync',
-    params: { video: true, audio: true } },
-];
-const KLING_VOICES = [
-  { id: 'en_AOT', name: 'English - AOT' }, { id: 'en_oversea_male1', name: 'English - Male 1' },
-  { id: 'en_girlfriend_4_speech02', name: 'English - Girlfriend' }, { id: 'en_chat_0407_5-1', name: 'English - Chat' },
-  { id: 'en_uk_boy1', name: 'English - UK Boy' }, { id: 'en_PeppaPig_platform', name: 'English - Peppa Pig' },
-  { id: 'en_calm_story1', name: 'English - Calm Story' }, { id: 'en_uk_man2', name: 'English - UK Man' },
-  { id: 'en_reader_en_m-v1', name: 'English - Reader Male' }, { id: 'en_commercial_lady_en_f-v1', name: 'English - Commercial Lady' },
-  { id: 'zh_genshin_vindi2', name: 'Chinese - Vindi' }, { id: 'zh_zhinen_xuesheng', name: 'Chinese - Student' },
-  { id: 'zh_genshin_klee2', name: 'Chinese - Klee' }, { id: 'zh_girlfriend_1_speech02', name: 'Chinese - Girlfriend 1' },
-  { id: 'zh_girlfriend_2_speech02', name: 'Chinese - Girlfriend 2' }, { id: 'zh_cartoon-boy-07', name: 'Chinese - Cartoon Boy' },
-  { id: 'zh_cartoon-girl-01', name: 'Chinese - Cartoon Girl' },
-];
+
 // Transcribe models
 const TRANSCRIBE_MODELS = [
   { id: 'openai/gpt-4o-transcribe', name: 'GPT-4o Transcribe', desc: 'OpenAI latest transcription',
@@ -467,13 +448,6 @@ function App() {
   const [motionImage, setMotionImage] = useState(null);
   const [motionVideo, setMotionVideo] = useState(null);
   const [motionOpts, setMotionOpts] = useState({});
-
-  // Lip Sync
-  const [lipsyncModel, setLipsyncModel] = useState(LIPSYNC_MODELS[0].id);
-  const [lipsyncVideo, setLipsyncVideo] = useState(null);
-  const [lipsyncAudio, setLipsyncAudio] = useState(null);
-  const [lipsyncText, setLipsyncText] = useState('');
-  const [lipsyncOpts, setLipsyncOpts] = useState({});
 
   // Transcribe
   const [transcribeModel, setTranscribeModel] = useState(TRANSCRIBE_MODELS[0].id);
@@ -1190,66 +1164,6 @@ function App() {
     } catch (err) { setError(err.message); finishJob(jobId, err.message); }
   };
 
-  // ─── Generate Lip Sync ───
-  const generateLipsync = async () => {
-    if (!canGenerate()) return;
-    const isKling = lipsyncModel.includes('kling');
-    const isSync = lipsyncModel.includes('sync/');
-    const isPix = lipsyncModel.includes('pixverse');
-    if (!isKling && !lipsyncVideo) return setError('Upload a video');
-    if ((isSync || isPix) && !lipsyncAudio) return setError('Upload an audio file');
-    if (isKling && !lipsyncVideo && !lipsyncOpts.video_url?.trim()) return setError('Upload a video or enter video URL');
-    if (isKling && !lipsyncAudio && !lipsyncText.trim()) return setError('Enter text or upload audio');
-    const jobId = addJob('lipsync', lipsyncModel, 'Lip sync');
-    setError('');
-    try {
-      const input = {};
-      if (isKling) {
-        if (lipsyncVideo) {
-          updateJob(jobId, { status: 'Uploading video...' });
-          input.video_url = await uploadToReplicate(lipsyncVideo, 'video/mp4');
-        } else if (lipsyncOpts.video_url?.trim()) input.video_url = lipsyncOpts.video_url.trim();
-        if (lipsyncAudio) {
-          updateJob(jobId, { status: 'Uploading audio...' });
-          input.audio_file = await uploadToReplicate(lipsyncAudio, 'audio/mpeg');
-        } else if (lipsyncText.trim()) {
-          input.text = lipsyncText.trim();
-          input.voice_id = lipsyncOpts.voice_id || 'en_AOT';
-          input.voice_speed = lipsyncOpts.voice_speed || 1;
-        }
-      } else {
-        updateJob(jobId, { status: 'Uploading video...' });
-        input.video = await uploadToReplicate(lipsyncVideo, 'video/mp4');
-        updateJob(jobId, { status: 'Uploading audio...' });
-        input.audio = await uploadToReplicate(lipsyncAudio, 'audio/mpeg');
-        if (isSync) {
-          input.sync_mode = lipsyncOpts.sync_mode || 'loop';
-          input.temperature = lipsyncOpts.temperature ?? 0.5;
-          input.active_speaker = !!lipsyncOpts.active_speaker;
-        }
-      }
-      updateJob(jobId, { status: 'Generating...' });
-      const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: lipsyncModel, input }),
-      });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
-      if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
-      while (pred.status !== 'succeeded' && pred.status !== 'failed') {
-        updateJob(jobId, { status: `${pred.status}...` }); await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
-      }
-      if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
-      const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
-      const item = { type: 'video', url, prompt: 'Lip sync', model: lipsyncModel, ts: Date.now() };
-      setResults(prev => [item, ...prev]);
-      setHistory(prev => ({ ...prev, videos: [item, ...prev.videos].slice(0, 50) }));
-      finishJob(jobId);
-    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
-  };
-
   // ─── Generate Transcription ───
   const generateTranscribe = async () => {
     if (!transcribeAudio) return setError('Upload an audio file');
@@ -1337,7 +1251,7 @@ function App() {
       <div style={S.container}>
         {/* Tabs */}
         <div style={S.tabs}>
-          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'lipsync',icon:'👄',label:'Lip Sync'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
+          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '8px 12px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
               {t.icon} {t.label}
               {jobs.some(j => j.tab === t.id && !j.done) && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#667eea', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
@@ -1645,116 +1559,6 @@ function App() {
 
             <button onClick={generateMotion} style={S.btn}>
               🎭 Generate Motion Control
-            </button>
-
-            {results.filter(r => r.type === 'video').length > 0 && (
-              <div style={S.grid}>
-                {results.filter(r => r.type === 'video').map((item, i) => (
-                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
-                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
-                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          );
-        })()}
-
-        {/* ══ LIP SYNC TAB ══ */}
-        {tab === 'lipsync' && (() => {
-          const isKling = lipsyncModel.includes('kling');
-          const isSync = lipsyncModel.includes('sync/');
-          const isPix = lipsyncModel.includes('pixverse');
-          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
-          const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
-          return (
-          <div>
-            <select value={lipsyncModel} onChange={e => { setLipsyncModel(e.target.value); setLipsyncOpts({}); setLipsyncText(''); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
-              {LIPSYNC_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}</option>)}
-            </select>
-
-            {/* Video input */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={S.label}>Video {isKling ? '(or paste URL below)' : ''}</label>
-              {lipsyncVideo ? (
-                <div style={{ position: 'relative', display: 'inline-block' }}>
-                  <video src={lipsyncVideo} style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} controls playsInline />
-                  <button onClick={() => setLipsyncVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
-                </div>
-              ) : (
-                <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
-                  🎬 Upload video<br/><span style={{ fontSize: 11, color: '#555' }}>{isKling ? 'MP4/MOV • 2-10s • 720p-1080p' : isSync ? 'MP4 video file' : 'Video file'}</span>
-                  <input type="file" accept="video/*" onChange={e => { if(e.target.files?.[0]) setLipsyncVideo(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
-                </label>
-              )}
-            </div>
-
-            {/* Kling: video URL alternative */}
-            {isKling && !lipsyncVideo && (
-              <div style={{ marginBottom: 12 }}>
-                <input style={S.input} placeholder="Or paste video URL (mp4/mov)..." value={lipsyncOpts.video_url||''} onChange={e => setLipsyncOpts(p => ({...p, video_url: e.target.value}))} />
-              </div>
-            )}
-
-            {/* Audio input (all models) */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={S.label}>Audio {isKling ? '(or use text-to-speech below)' : ''}</label>
-              {lipsyncAudio ? (
-                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <audio src={lipsyncAudio} controls style={{ height: 40 }} />
-                  <button onClick={() => setLipsyncAudio(null)} style={{ width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
-                </div>
-              ) : (
-                <label style={{ display: 'block', padding: '20px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
-                  🎙️ Upload audio<br/><span style={{ fontSize: 11, color: '#555' }}>{isKling ? 'MP3, WAV, M4A, AAC • Max 5MB' : isSync ? 'WAV audio file' : 'Audio file'}</span>
-                  <input type="file" accept="audio/*" onChange={e => { if(e.target.files?.[0]) setLipsyncAudio(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
-                </label>
-              )}
-            </div>
-
-            {/* Kling: Text-to-speech as alternative to audio */}
-            {isKling && !lipsyncAudio && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={S.label}>Or enter text (will use TTS)</label>
-                <textarea style={{ ...S.input, minHeight: 60 }} placeholder="Text to speak..." value={lipsyncText} onChange={e => setLipsyncText(e.target.value)} />
-                {lipsyncText.trim() && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                    <div>
-                      <label style={S.label}>Voice</label>
-                      <select value={lipsyncOpts.voice_id||'en_AOT'} onChange={e => setLipsyncOpts(p => ({...p, voice_id: e.target.value}))} style={{ ...S.select, width: '100%' }}>
-                        {KLING_VOICES.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={S.label}>Speed: {lipsyncOpts.voice_speed || 1}x</label>
-                      <input type="range" min={0.8} max={2} step={0.1} value={lipsyncOpts.voice_speed || 1} onChange={e => setLipsyncOpts(p => ({...p, voice_speed: +e.target.value}))} style={{ width: '100%' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Sync Pro options */}
-            {isSync && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-                <div>
-                  <label style={S.label}>Sync Mode</label>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {['loop','bounce','cut_off','silence','remap'].map(m => <button key={m} onClick={() => setLipsyncOpts(p => ({...p, sync_mode: m}))} style={btnSt((lipsyncOpts.sync_mode||'loop')===m)}>{m}</button>)}
-                  </div>
-                </div>
-                <div>
-                  <label style={S.label}>Expression: {lipsyncOpts.temperature ?? 0.5}</label>
-                  <input type="range" min={0} max={1} step={0.1} value={lipsyncOpts.temperature ?? 0.5} onChange={e => setLipsyncOpts(p => ({...p, temperature: +e.target.value}))} style={{ width: '100%' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>Subtle</span><span>Expressive</span></div>
-                </div>
-                <label style={checkSt}><input type="checkbox" checked={!!lipsyncOpts.active_speaker} onChange={e => setLipsyncOpts(p => ({...p, active_speaker: e.target.checked}))} />🗣️ Auto-detect active speaker</label>
-              </div>
-            )}
-
-            <button onClick={generateLipsync} style={S.btn}>
-              👄 Generate Lip Sync
             </button>
 
             {results.filter(r => r.type === 'video').length > 0 && (

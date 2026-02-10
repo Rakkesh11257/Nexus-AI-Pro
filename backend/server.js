@@ -563,25 +563,34 @@ app.post('/api/replicate/upload', requirePaid, async (req, res) => {
 
     // Determine filename with correct extension
     const extMap = {
-      'video/mp4': '.mp4', 'video/webm': '.webm', 'audio/mpeg': '.mp3',
-      'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/ogg': '.ogg',
-      'audio/mp4': '.m4a', 'audio/m4a': '.m4a', 'audio/aac': '.aac',
-      'audio/webm': '.webm', 'audio/flac': '.flac', 'image/png': '.png',
-      'image/jpeg': '.jpg', 'image/webp': '.webp',
+      'video/mp4': '.mp4', 'video/webm': '.webm', 'video/quicktime': '.mov',
+      'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav',
+      'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/m4a': '.m4a',
+      'audio/aac': '.aac', 'audio/webm': '.webm', 'audio/flac': '.flac',
+      'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
     };
     const ext = extMap[content_type] || '';
     const uploadFilename = filename || `upload_${Date.now()}${ext}`;
     const mime = content_type || 'application/octet-stream';
 
     console.log('>>> Uploading to Replicate Files:', uploadFilename, mime, buffer.length, 'bytes');
+
+    // Build multipart/form-data with the file as 'content' field
+    const boundary = `----ReplicateUpload${Date.now()}`;
+    const CRLF = '\r\n';
+    const headerPart = `--${boundary}${CRLF}Content-Disposition: form-data; name="content"; filename="${uploadFilename}"${CRLF}Content-Type: ${mime}${CRLF}${CRLF}`;
+    const footerPart = `${CRLF}--${boundary}--${CRLF}`;
+    const headerBuf = Buffer.from(headerPart, 'utf-8');
+    const footerBuf = Buffer.from(footerPart, 'utf-8');
+    const multipartBody = Buffer.concat([headerBuf, buffer, footerBuf]);
+
     const createRes = await fetch('https://api.replicate.com/v1/files', {
       method: 'POST',
       headers: {
         'Authorization': apiKey,
-        'Content-Type': mime,
-        'Content-Disposition': `inline; filename="${uploadFilename}"`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
-      body: buffer,
+      body: multipartBody,
     });
 
     if (!createRes.ok) {
