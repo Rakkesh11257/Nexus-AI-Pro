@@ -1278,18 +1278,13 @@ function App() {
         input.temperature = transcribeOpts.temperature ?? 0;
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
       } else if (isGemini) {
-        // Gemini requires correct mime_type — determine it from file type
+        // Gemini needs a proper URL with correct content-type (not base64 data URI)
         let audioMime = transcribeAudioMime || 'audio/mpeg';
         if (audioMime.startsWith('video/')) audioMime = audioMime.replace('video/', 'audio/');
         if (audioMime === 'application/octet-stream' || !audioMime.startsWith('audio/')) audioMime = 'audio/mpeg';
-        // Rewrite data URI prefix to match the correct audio mime type
-        // (browser may set video/mp4 for .mp4 files even when used as audio)
-        let fixedAudioData = audioData;
-        if (audioData.startsWith('data:')) {
-          const base64Part = audioData.split(',')[1];
-          fixedAudioData = `data:${audioMime};base64,${base64Part}`;
-        }
-        input.audio = fixedAudioData;
+        updateJob(jobId, { status: 'Uploading audio...' });
+        const audioUrl = await uploadToReplicate(transcribeAudio, audioMime);
+        input.audio = audioUrl;
         input.mime_type = audioMime;
         input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
         if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
