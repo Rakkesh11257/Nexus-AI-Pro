@@ -478,6 +478,7 @@ function App() {
   // Transcribe
   const [transcribeModel, setTranscribeModel] = useState(TRANSCRIBE_MODELS[0].id);
   const [transcribeAudio, setTranscribeAudio] = useState(null);
+  const [transcribeAudioMime, setTranscribeAudioMime] = useState('audio/mpeg');
   const [transcribePrompt, setTranscribePrompt] = useState('');
   const [transcribeOpts, setTranscribeOpts] = useState({});
   const [transcribeResult, setTranscribeResult] = useState('');
@@ -1278,9 +1279,8 @@ function App() {
         input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
       } else if (isGemini) {
         input.audio = audioData;
-        // Gemini requires mime_type for audio files
-        const mimeMatch = audioData.match(/^data:([^;]+);/);
-        input.mime_type = mimeMatch ? mimeMatch[1] : 'audio/mpeg';
+        // Gemini requires mime_type for audio files — use stored file type
+        input.mime_type = transcribeAudioMime || 'audio/mpeg';
         input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
         if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
         input.thinking_level = transcribeOpts.thinking_level || 'low';
@@ -1804,7 +1804,7 @@ function App() {
               ) : (
                 <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
                   🎙️ Upload audio file<br/><span style={{ fontSize: 11, color: '#555' }}>{isGPT4o ? 'MP3, MP4, WAV, WEBM, OGG' : isWhisper ? 'MP3, MP4, WAV, WEBM, OGG' : 'Audio file (up to 8.4 hours)'}</span>
-                  <input type="file" accept="audio/*,.mp3,.mp4,.wav,.ogg,.webm,.m4a,.mpeg,.mpga" onChange={e => { if(e.target.files?.[0]) setTranscribeAudio(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                  <input type="file" accept="audio/*,.mp3,.mp4,.wav,.ogg,.webm,.m4a,.mpeg,.mpga" onChange={e => { const f = e.target.files?.[0]; if(f) { setTranscribeAudio(URL.createObjectURL(f)); setTranscribeAudioMime(f.type || 'audio/mpeg'); } }} style={{ display: 'none' }} />
                 </label>
               )}
             </div>

@@ -610,6 +610,12 @@ app.post('/api/replicate/predictions', requirePaid, async (req, res) => {
       headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
       body: JSON.stringify(body),
     });
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await resp.text();
+      console.error('>>> Replicate non-JSON response:', resp.status, text.slice(0, 200));
+      return res.status(resp.status).json({ error: `Replicate returned non-JSON (${resp.status}). Model may not exist or URL is wrong.` });
+    }
     const data = await resp.json();
     console.log('>>> Replicate status:', resp.status, data.id || data.detail || data.error || '');
     res.status(resp.status).json(data);
