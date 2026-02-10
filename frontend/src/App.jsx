@@ -64,6 +64,42 @@ const ASPECTS = [
   { id: '4:3', w: 1152, h: 896 },
   { id: '3:4', w: 896, h: 1152 },
 ];
+// Motion Control models
+const MOTION_MODELS = [
+  { id: 'kwaivgi/kling-v2.6-motion-control', name: 'Kling V2.6 Motion Control', desc: 'Motion transfer from video',
+    params: { prompt: true, image: true, video: true, character_orientation: ['image','video'], mode: ['std','pro'], keep_original_sound: true } },
+  { id: 'wan-video/wan-2.2-animate-animation', name: 'Wan 2.2 Animate', desc: 'Character animation',
+    params: { video: true, character_image: true, resolution: ['720','480'], refert_num: { default: 1, options: [1, 5] }, fps: { min: 5, max: 60, default: 24 }, go_fast: true, seed: true, merge_audio: true } },
+];
+// Lip Sync models
+const LIPSYNC_MODELS = [
+  { id: 'kwaivgi/kling-lip-sync', name: 'Kling Lip Sync', desc: 'Text/Audio lip sync',
+    params: { video_url: true, audio_file: true, text: true, voice_id: true, voice_speed: { min: 0.8, max: 2, default: 1 } } },
+  { id: 'sync/lipsync-2-pro', name: 'Lipsync 2 Pro', desc: 'Pro audio lip sync',
+    params: { video: true, audio: true, sync_mode: ['loop','bounce','cut_off','silence','remap'], temperature: { min: 0, max: 1, default: 0.5 }, active_speaker: false } },
+  { id: 'pixverse/lipsync', name: 'PixVerse Lipsync', desc: 'Simple video+audio sync',
+    params: { video: true, audio: true } },
+];
+const KLING_VOICES = [
+  { id: 'en_AOT', name: 'English - AOT' }, { id: 'en_oversea_male1', name: 'English - Male 1' },
+  { id: 'en_girlfriend_4_speech02', name: 'English - Girlfriend' }, { id: 'en_chat_0407_5-1', name: 'English - Chat' },
+  { id: 'en_uk_boy1', name: 'English - UK Boy' }, { id: 'en_PeppaPig_platform', name: 'English - Peppa Pig' },
+  { id: 'en_calm_story1', name: 'English - Calm Story' }, { id: 'en_uk_man2', name: 'English - UK Man' },
+  { id: 'en_reader_en_m-v1', name: 'English - Reader Male' }, { id: 'en_commercial_lady_en_f-v1', name: 'English - Commercial Lady' },
+  { id: 'zh_genshin_vindi2', name: 'Chinese - Vindi' }, { id: 'zh_zhinen_xuesheng', name: 'Chinese - Student' },
+  { id: 'zh_genshin_klee2', name: 'Chinese - Klee' }, { id: 'zh_girlfriend_1_speech02', name: 'Chinese - Girlfriend 1' },
+  { id: 'zh_girlfriend_2_speech02', name: 'Chinese - Girlfriend 2' }, { id: 'zh_cartoon-boy-07', name: 'Chinese - Cartoon Boy' },
+  { id: 'zh_cartoon-girl-01', name: 'Chinese - Cartoon Girl' },
+];
+// Transcribe models
+const TRANSCRIBE_MODELS = [
+  { id: 'openai/gpt-4o-transcribe', name: 'GPT-4o Transcribe', desc: 'OpenAI latest transcription',
+    params: { audio_file: true, prompt: true, language: true, temperature: { min: 0, max: 1, default: 0 } } },
+  { id: 'openai/whisper', name: 'OpenAI Whisper', desc: 'Classic speech-to-text',
+    params: { audio: true, transcription: ['plain text','srt','vtt'], translate: false, language: true, temperature: { default: 0 }, condition_on_previous_text: true } },
+  { id: 'google/gemini-3-pro', name: 'Gemini 3 Pro', desc: 'Multimodal transcription',
+    params: { prompt: true, audio: true, system_instruction: true, thinking_level: ['low','high'], temperature: { min: 0, max: 2, default: 1 }, max_output_tokens: { default: 65535, max: 65535 } } },
+];
 // Text/Chat models
 const TEXT_MODELS = [
   { id: 'openai/gpt-5', name: 'GPT-5', desc: 'OpenAI GPT-5',
@@ -421,6 +457,27 @@ function App() {
   const [chatOpts, setChatOpts] = useState({});
   const [chatMessages, setChatMessages] = useState([]); // { role, content }
   const [chatStreaming, setChatStreaming] = useState(false);
+
+  // Motion Control
+  const [motionModel, setMotionModel] = useState(MOTION_MODELS[0].id);
+  const [motionPrompt, setMotionPrompt] = useState('');
+  const [motionImage, setMotionImage] = useState(null);
+  const [motionVideo, setMotionVideo] = useState(null);
+  const [motionOpts, setMotionOpts] = useState({});
+
+  // Lip Sync
+  const [lipsyncModel, setLipsyncModel] = useState(LIPSYNC_MODELS[0].id);
+  const [lipsyncVideo, setLipsyncVideo] = useState(null);
+  const [lipsyncAudio, setLipsyncAudio] = useState(null);
+  const [lipsyncText, setLipsyncText] = useState('');
+  const [lipsyncOpts, setLipsyncOpts] = useState({});
+
+  // Transcribe
+  const [transcribeModel, setTranscribeModel] = useState(TRANSCRIBE_MODELS[0].id);
+  const [transcribeAudio, setTranscribeAudio] = useState(null);
+  const [transcribePrompt, setTranscribePrompt] = useState('');
+  const [transcribeOpts, setTranscribeOpts] = useState({});
+  const [transcribeResult, setTranscribeResult] = useState('');
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -972,6 +1029,175 @@ function App() {
       </div>
     );
   };
+  // ─── Generate Motion Control ───
+  const generateMotion = async () => {
+    if (!canGenerate()) return;
+    const modelCfg = MOTION_MODELS.find(m => m.id === motionModel);
+    const isKling = motionModel.includes('kling');
+    const isAnimate = motionModel.includes('animate');
+    if (isKling && !motionImage) return setError('Upload a reference image');
+    if (isKling && !motionVideo) return setError('Upload a reference video');
+    if (isAnimate && !motionVideo) return setError('Upload an input video');
+    if (isAnimate && !motionImage) return setError('Upload a character image');
+    setError(''); setLoading(true); setLoadingStatus('Starting motion control...');
+    try {
+      const input = {};
+      if (motionPrompt.trim()) input.prompt = motionPrompt.trim();
+      // Image
+      setLoadingStatus('Preparing image...');
+      const imgData = motionImage.startsWith('blob:') ? await toDataUri(motionImage) : motionImage;
+      if (isKling) input.image = imgData;
+      else input.character_image = imgData;
+      // Video
+      setLoadingStatus('Preparing video...');
+      const vidData = motionVideo.startsWith('blob:') ? await toDataUri(motionVideo) : motionVideo;
+      input.video = vidData;
+      // Model-specific params
+      if (isKling) {
+        input.character_orientation = motionOpts.character_orientation || 'image';
+        input.mode = motionOpts.mode || 'std';
+        input.keep_original_sound = motionOpts.keep_original_sound !== false;
+      } else {
+        input.resolution = motionOpts.resolution || '720';
+        input.refert_num = motionOpts.refert_num || 1;
+        input.frames_per_second = motionOpts.fps || 24;
+        input.go_fast = motionOpts.go_fast !== false;
+        input.merge_audio = motionOpts.merge_audio !== false;
+        if (motionOpts.seed) input.seed = parseInt(motionOpts.seed);
+      }
+      setLoadingStatus('Generating...');
+      const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: motionModel, input }),
+      });
+      if (res.status === 403) { setShowPaywall(true); return; }
+      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      let pred = await res.json();
+      while (pred.status !== 'succeeded' && pred.status !== 'failed') {
+        setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
+        pred = await poll.json();
+      }
+      if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
+      const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
+      const item = { type: 'video', url, prompt: motionPrompt.trim() || 'Motion control', model: motionModel, ts: Date.now() };
+      setResults(prev => [item, ...prev]);
+      setHistory(prev => ({ ...prev, videos: [item, ...prev.videos].slice(0, 50) }));
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); setLoadingStatus(''); }
+  };
+
+  // ─── Generate Lip Sync ───
+  const generateLipsync = async () => {
+    if (!canGenerate()) return;
+    const isKling = lipsyncModel.includes('kling');
+    const isSync = lipsyncModel.includes('sync/');
+    const isPix = lipsyncModel.includes('pixverse');
+    if (!isKling && !lipsyncVideo) return setError('Upload a video');
+    if ((isSync || isPix) && !lipsyncAudio) return setError('Upload an audio file');
+    if (isKling && !lipsyncVideo && !lipsyncOpts.video_url?.trim()) return setError('Upload a video or enter video URL');
+    if (isKling && !lipsyncAudio && !lipsyncText.trim()) return setError('Enter text or upload audio');
+    setError(''); setLoading(true); setLoadingStatus('Starting lip sync...');
+    try {
+      const input = {};
+      if (isKling) {
+        if (lipsyncVideo) { const d = lipsyncVideo.startsWith('blob:') ? await toDataUri(lipsyncVideo) : lipsyncVideo; input.video_url = d; }
+        else if (lipsyncOpts.video_url?.trim()) input.video_url = lipsyncOpts.video_url.trim();
+        if (lipsyncAudio) { input.audio_file = lipsyncAudio.startsWith('blob:') ? await toDataUri(lipsyncAudio) : lipsyncAudio; }
+        else if (lipsyncText.trim()) {
+          input.text = lipsyncText.trim();
+          input.voice_id = lipsyncOpts.voice_id || 'en_AOT';
+          input.voice_speed = lipsyncOpts.voice_speed || 1;
+        }
+      } else {
+        setLoadingStatus('Preparing files...');
+        input.video = lipsyncVideo.startsWith('blob:') ? await toDataUri(lipsyncVideo) : lipsyncVideo;
+        input.audio = lipsyncAudio.startsWith('blob:') ? await toDataUri(lipsyncAudio) : lipsyncAudio;
+        if (isSync) {
+          input.sync_mode = lipsyncOpts.sync_mode || 'loop';
+          input.temperature = lipsyncOpts.temperature ?? 0.5;
+          input.active_speaker = !!lipsyncOpts.active_speaker;
+        }
+      }
+      setLoadingStatus('Generating...');
+      const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: lipsyncModel, input }),
+      });
+      if (res.status === 403) { setShowPaywall(true); return; }
+      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      let pred = await res.json();
+      while (pred.status !== 'succeeded' && pred.status !== 'failed') {
+        setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
+        pred = await poll.json();
+      }
+      if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
+      const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
+      const item = { type: 'video', url, prompt: 'Lip sync', model: lipsyncModel, ts: Date.now() };
+      setResults(prev => [item, ...prev]);
+      setHistory(prev => ({ ...prev, videos: [item, ...prev.videos].slice(0, 50) }));
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); setLoadingStatus(''); }
+  };
+
+  // ─── Generate Transcription ───
+  const generateTranscribe = async () => {
+    if (!transcribeAudio) return setError('Upload an audio file');
+    if (!canGenerate()) return;
+    setError(''); setLoading(true); setLoadingStatus('Starting transcription...');
+    try {
+      const input = {};
+      setLoadingStatus('Preparing audio...');
+      const audioData = transcribeAudio.startsWith('blob:') ? await toDataUri(transcribeAudio) : transcribeAudio;
+      const isGPT4o = transcribeModel.includes('gpt-4o');
+      const isWhisper = transcribeModel.includes('whisper');
+      const isGemini = transcribeModel.includes('gemini');
+      if (isGPT4o) {
+        input.audio_file = audioData;
+        if (transcribePrompt.trim()) input.prompt = transcribePrompt.trim();
+        if (transcribeOpts.language?.trim()) input.language = transcribeOpts.language.trim();
+        input.temperature = transcribeOpts.temperature ?? 0;
+      } else if (isWhisper) {
+        input.audio = audioData;
+        input.transcription = transcribeOpts.transcription || 'plain text';
+        input.translate = !!transcribeOpts.translate;
+        if (transcribeOpts.language?.trim()) input.language = transcribeOpts.language.trim();
+        else input.language = 'auto';
+        input.temperature = transcribeOpts.temperature ?? 0;
+        input.condition_on_previous_text = transcribeOpts.condition_on_previous_text !== false;
+      } else if (isGemini) {
+        input.audio = audioData;
+        input.prompt = transcribePrompt.trim() || 'Transcribe this audio accurately';
+        if (transcribeOpts.system_instruction?.trim()) input.system_instruction = transcribeOpts.system_instruction.trim();
+        input.thinking_level = transcribeOpts.thinking_level || 'low';
+        input.temperature = transcribeOpts.temperature ?? 1;
+        input.max_output_tokens = transcribeOpts.max_output_tokens || 65535;
+      }
+      setLoadingStatus('Transcribing...');
+      const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: transcribeModel, input }),
+      });
+      if (res.status === 403) { setShowPaywall(true); return; }
+      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      let pred = await res.json();
+      while (pred.status !== 'succeeded' && pred.status !== 'failed') {
+        setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 2000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
+        pred = await poll.json();
+      }
+      if (pred.status === 'failed') throw new Error(pred.error || 'Transcription failed');
+      let output = pred.output;
+      if (typeof output === 'object' && output?.text) output = output.text;
+      if (typeof output === 'object' && output?.transcription) output = output.transcription;
+      if (Array.isArray(output)) output = output.join('');
+      if (typeof output === 'object') output = JSON.stringify(output, null, 2);
+      setTranscribeResult(output);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); setLoadingStatus(''); }
+  };
+
   const deleteHistoryItem = (type, idx) => setHistory(prev => ({ ...prev, [type]: prev[type].filter((_, i) => i !== idx) }));
 
   // ─── Render ───
@@ -999,7 +1225,7 @@ function App() {
       <div style={S.container}>
         {/* Tabs */}
         <div style={S.tabs}>
-          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
+          {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'lipsync',icon:'👄',label:'Lip Sync'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '8px 12px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
               {t.icon} {t.label}
             </button>
@@ -1211,6 +1437,322 @@ function App() {
             )}
           </div>
         )}
+
+        {/* ══ MOTION CONTROL TAB ══ */}
+        {tab === 'motion' && (() => {
+          const isKling = motionModel.includes('kling');
+          const isAnimate = motionModel.includes('animate');
+          const curMotion = MOTION_MODELS.find(m => m.id === motionModel);
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
+          return (
+          <div>
+            <select value={motionModel} onChange={e => { setMotionModel(e.target.value); setMotionOpts({}); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
+              {MOTION_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}</option>)}
+            </select>
+
+            {/* Reference Image */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>{isKling ? 'Reference Image' : 'Character Image'}</label>
+              {motionImage ? (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={motionImage} alt="" style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} />
+                  <button onClick={() => setMotionImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
+                  🖼️ Upload {isKling ? 'reference' : 'character'} image<br/><span style={{ fontSize: 11, color: '#555' }}>JPG, PNG • {isKling ? 'Characters & backgrounds based on this' : 'Character to animate'}</span>
+                  <input type="file" accept="image/*" onChange={e => { if(e.target.files?.[0]) setMotionImage(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                </label>
+              )}
+            </div>
+
+            {/* Reference Video */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>{isKling ? 'Reference Video (motion source)' : 'Input Video (motion reference)'}</label>
+              {motionVideo ? (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <video src={motionVideo} style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} controls playsInline />
+                  <button onClick={() => setMotionVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
+                  🎬 Upload reference video<br/><span style={{ fontSize: 11, color: '#555' }}>{isKling ? 'MP4/MOV • 3-30s • Actions will be transferred' : 'MP4 • Motion will be applied to character'}</span>
+                  <input type="file" accept="video/*" onChange={e => { if(e.target.files?.[0]) setMotionVideo(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                </label>
+              )}
+            </div>
+
+            {/* Prompt (Kling only) */}
+            {isKling && <textarea style={{ ...S.input, minHeight: 60, marginBottom: 12 }} placeholder="Describe motion effects (optional)..." value={motionPrompt} onChange={e => setMotionPrompt(e.target.value)} />}
+
+            {/* Model-specific options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              {isKling && (
+                <>
+                  <div>
+                    <label style={S.label}>Character Orientation</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['image','video'].map(o => <button key={o} onClick={() => setMotionOpts(p => ({...p, character_orientation: o}))} style={btnSt((motionOpts.character_orientation||'image')===o)}>{o === 'image' ? '🖼️ Image (max 10s)' : '🎬 Video (max 30s)'}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={S.label}>Mode</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['std','pro'].map(m => <button key={m} onClick={() => setMotionOpts(p => ({...p, mode: m}))} style={btnSt((motionOpts.mode||'std')===m)}>{m === 'std' ? 'Standard' : 'Professional'}</button>)}
+                    </div>
+                  </div>
+                  <label style={checkSt}><input type="checkbox" checked={motionOpts.keep_original_sound !== false} onChange={e => setMotionOpts(p => ({...p, keep_original_sound: e.target.checked}))} />🔊 Keep original sound</label>
+                </>
+              )}
+              {isAnimate && (
+                <>
+                  <div>
+                    <label style={S.label}>Resolution</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['720','480'].map(r => <button key={r} onClick={() => setMotionOpts(p => ({...p, resolution: r}))} style={btnSt((motionOpts.resolution||'720')===r)}>{r}p</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={S.label}>Reference Frames</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[1,5].map(n => <button key={n} onClick={() => setMotionOpts(p => ({...p, refert_num: n}))} style={btnSt((motionOpts.refert_num||1)===n)}>{n} frame{n>1?'s':''}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={S.label}>FPS: {motionOpts.fps || 24}</label>
+                    <input type="range" min={5} max={60} value={motionOpts.fps || 24} onChange={e => setMotionOpts(p => ({...p, fps: +e.target.value}))} style={{ width: '100%' }} />
+                  </div>
+                  <label style={checkSt}><input type="checkbox" checked={motionOpts.go_fast !== false} onChange={e => setMotionOpts(p => ({...p, go_fast: e.target.checked}))} />⚡ Go Fast</label>
+                  <label style={checkSt}><input type="checkbox" checked={motionOpts.merge_audio !== false} onChange={e => setMotionOpts(p => ({...p, merge_audio: e.target.checked}))} />🔊 Merge audio from input</label>
+                  <div><label style={S.label}>Seed (optional)</label><input style={S.input} type="number" placeholder="Random" value={motionOpts.seed||''} onChange={e => setMotionOpts(p => ({...p, seed: e.target.value}))} /></div>
+                </>
+              )}
+            </div>
+
+            <button onClick={generateMotion} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
+              {loading ? 'Generating...' : '🎭 Generate Motion Control'}
+            </button>
+
+            {results.filter(r => r.type === 'video').length > 0 && (
+              <div style={S.grid}>
+                {results.filter(r => r.type === 'video').map((item, i) => (
+                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
+                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
+                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* ══ LIP SYNC TAB ══ */}
+        {tab === 'lipsync' && (() => {
+          const isKling = lipsyncModel.includes('kling');
+          const isSync = lipsyncModel.includes('sync/');
+          const isPix = lipsyncModel.includes('pixverse');
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
+          return (
+          <div>
+            <select value={lipsyncModel} onChange={e => { setLipsyncModel(e.target.value); setLipsyncOpts({}); setLipsyncText(''); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
+              {LIPSYNC_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}</option>)}
+            </select>
+
+            {/* Video input */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Video {isKling ? '(or paste URL below)' : ''}</label>
+              {lipsyncVideo ? (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <video src={lipsyncVideo} style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} controls playsInline />
+                  <button onClick={() => setLipsyncVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
+                  🎬 Upload video<br/><span style={{ fontSize: 11, color: '#555' }}>{isKling ? 'MP4/MOV • 2-10s • 720p-1080p' : isSync ? 'MP4 video file' : 'Video file'}</span>
+                  <input type="file" accept="video/*" onChange={e => { if(e.target.files?.[0]) setLipsyncVideo(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                </label>
+              )}
+            </div>
+
+            {/* Kling: video URL alternative */}
+            {isKling && !lipsyncVideo && (
+              <div style={{ marginBottom: 12 }}>
+                <input style={S.input} placeholder="Or paste video URL (mp4/mov)..." value={lipsyncOpts.video_url||''} onChange={e => setLipsyncOpts(p => ({...p, video_url: e.target.value}))} />
+              </div>
+            )}
+
+            {/* Audio input (all models) */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Audio {isKling ? '(or use text-to-speech below)' : ''}</label>
+              {lipsyncAudio ? (
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <audio src={lipsyncAudio} controls style={{ height: 40 }} />
+                  <button onClick={() => setLipsyncAudio(null)} style={{ width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', padding: '20px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
+                  🎙️ Upload audio<br/><span style={{ fontSize: 11, color: '#555' }}>{isKling ? 'MP3, WAV, M4A, AAC • Max 5MB' : isSync ? 'WAV audio file' : 'Audio file'}</span>
+                  <input type="file" accept="audio/*" onChange={e => { if(e.target.files?.[0]) setLipsyncAudio(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                </label>
+              )}
+            </div>
+
+            {/* Kling: Text-to-speech as alternative to audio */}
+            {isKling && !lipsyncAudio && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={S.label}>Or enter text (will use TTS)</label>
+                <textarea style={{ ...S.input, minHeight: 60 }} placeholder="Text to speak..." value={lipsyncText} onChange={e => setLipsyncText(e.target.value)} />
+                {lipsyncText.trim() && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                    <div>
+                      <label style={S.label}>Voice</label>
+                      <select value={lipsyncOpts.voice_id||'en_AOT'} onChange={e => setLipsyncOpts(p => ({...p, voice_id: e.target.value}))} style={{ ...S.select, width: '100%' }}>
+                        {KLING_VOICES.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={S.label}>Speed: {lipsyncOpts.voice_speed || 1}x</label>
+                      <input type="range" min={0.8} max={2} step={0.1} value={lipsyncOpts.voice_speed || 1} onChange={e => setLipsyncOpts(p => ({...p, voice_speed: +e.target.value}))} style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sync Pro options */}
+            {isSync && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={S.label}>Sync Mode</label>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {['loop','bounce','cut_off','silence','remap'].map(m => <button key={m} onClick={() => setLipsyncOpts(p => ({...p, sync_mode: m}))} style={btnSt((lipsyncOpts.sync_mode||'loop')===m)}>{m}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <label style={S.label}>Expression: {lipsyncOpts.temperature ?? 0.5}</label>
+                  <input type="range" min={0} max={1} step={0.1} value={lipsyncOpts.temperature ?? 0.5} onChange={e => setLipsyncOpts(p => ({...p, temperature: +e.target.value}))} style={{ width: '100%' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555' }}><span>Subtle</span><span>Expressive</span></div>
+                </div>
+                <label style={checkSt}><input type="checkbox" checked={!!lipsyncOpts.active_speaker} onChange={e => setLipsyncOpts(p => ({...p, active_speaker: e.target.checked}))} />🗣️ Auto-detect active speaker</label>
+              </div>
+            )}
+
+            <button onClick={generateLipsync} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
+              {loading ? 'Generating...' : '👄 Generate Lip Sync'}
+            </button>
+
+            {results.filter(r => r.type === 'video').length > 0 && (
+              <div style={S.grid}>
+                {results.filter(r => r.type === 'video').map((item, i) => (
+                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
+                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
+                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          );
+        })()}
+
+        {/* ══ TRANSCRIBE TAB ══ */}
+        {tab === 'transcribe' && (() => {
+          const isGPT4o = transcribeModel.includes('gpt-4o');
+          const isWhisper = transcribeModel.includes('whisper');
+          const isGemini = transcribeModel.includes('gemini');
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
+          return (
+          <div>
+            <select value={transcribeModel} onChange={e => { setTranscribeModel(e.target.value); setTranscribeOpts({}); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
+              {TRANSCRIBE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}</option>)}
+            </select>
+
+            {/* Audio upload */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={S.label}>Audio File</label>
+              {transcribeAudio ? (
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <audio src={transcribeAudio} controls style={{ height: 40 }} />
+                  <button onClick={() => setTranscribeAudio(null)} style={{ width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', padding: '30px 16px', border: '2px dashed #333', borderRadius: 8, textAlign: 'center', cursor: 'pointer', color: '#888', background: '#0a0a18' }}>
+                  🎙️ Upload audio file<br/><span style={{ fontSize: 11, color: '#555' }}>{isGPT4o ? 'MP3, MP4, WAV, WEBM, OGG' : isWhisper ? 'MP3, MP4, WAV, WEBM, OGG' : 'Audio file (up to 8.4 hours)'}</span>
+                  <input type="file" accept="audio/*,.mp3,.mp4,.wav,.ogg,.webm,.m4a,.mpeg,.mpga" onChange={e => { if(e.target.files?.[0]) setTranscribeAudio(URL.createObjectURL(e.target.files[0])); }} style={{ display: 'none' }} />
+                </label>
+              )}
+            </div>
+
+            {/* Prompt */}
+            {(isGPT4o || isGemini) && (
+              <textarea style={{ ...S.input, minHeight: 50, marginBottom: 12 }} placeholder={isGemini ? 'Prompt (e.g. Transcribe this audio accurately)...' : 'Optional prompt to guide transcription style...'} value={transcribePrompt} onChange={e => setTranscribePrompt(e.target.value)} />
+            )}
+
+            {/* Model-specific options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              {/* Language (GPT-4o & Whisper) */}
+              {(isGPT4o || isWhisper) && (
+                <div>
+                  <label style={S.label}>Language (ISO-639-1, e.g. en, es, hi)</label>
+                  <input style={S.input} placeholder={isWhisper ? 'auto' : 'en'} value={transcribeOpts.language||''} onChange={e => setTranscribeOpts(p => ({...p, language: e.target.value}))} />
+                </div>
+              )}
+
+              {/* Whisper-specific */}
+              {isWhisper && (
+                <>
+                  <div>
+                    <label style={S.label}>Output Format</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['plain text','srt','vtt'].map(f => <button key={f} onClick={() => setTranscribeOpts(p => ({...p, transcription: f}))} style={btnSt((transcribeOpts.transcription||'plain text')===f)}>{f.toUpperCase()}</button>)}
+                    </div>
+                  </div>
+                  <label style={checkSt}><input type="checkbox" checked={!!transcribeOpts.translate} onChange={e => setTranscribeOpts(p => ({...p, translate: e.target.checked}))} />🌐 Translate to English</label>
+                  <label style={checkSt}><input type="checkbox" checked={transcribeOpts.condition_on_previous_text !== false} onChange={e => setTranscribeOpts(p => ({...p, condition_on_previous_text: e.target.checked}))} />📝 Condition on previous text</label>
+                </>
+              )}
+
+              {/* Gemini-specific */}
+              {isGemini && (
+                <>
+                  <textarea style={{ ...S.input, minHeight: 36, fontSize: 12 }} placeholder="System instruction (optional)..." value={transcribeOpts.system_instruction||''} onChange={e => setTranscribeOpts(p => ({...p, system_instruction: e.target.value}))} />
+                  <div>
+                    <label style={S.label}>Thinking Level</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['low','high'].map(t => <button key={t} onClick={() => setTranscribeOpts(p => ({...p, thinking_level: t}))} style={btnSt((transcribeOpts.thinking_level||'low')===t)}>{t}</button>)}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Temperature (all models) */}
+              <div>
+                <label style={S.label}>Temperature: {transcribeOpts.temperature ?? (isGemini ? 1 : 0)}</label>
+                <input type="range" min={0} max={isGemini ? 2 : 1} step={0.1} value={transcribeOpts.temperature ?? (isGemini ? 1 : 0)} onChange={e => setTranscribeOpts(p => ({...p, temperature: +e.target.value}))} style={{ width: '100%' }} />
+              </div>
+            </div>
+
+            <button onClick={generateTranscribe} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.6 : 1 }}>
+              {loading ? 'Transcribing...' : '🎙️ Transcribe Audio'}
+            </button>
+
+            {/* Transcription result */}
+            {transcribeResult && (
+              <div style={{ marginTop: 16, padding: 16, background: '#111827', borderRadius: 10, border: '1px solid #1f2937' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ ...S.label, margin: 0 }}>Transcription Result</label>
+                  <button onClick={() => { navigator.clipboard.writeText(transcribeResult); }} style={{ ...S.btnSm, fontSize: 11 }}>📋 Copy</button>
+                </div>
+                <div style={{ background: '#0a0a18', borderRadius: 8, padding: 14, maxHeight: 400, overflowY: 'auto', fontSize: 14, color: '#ddd', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{transcribeResult}</div>
+              </div>
+            )}
+          </div>
+          );
+        })()}
 
         {/* ══ AI CHAT TAB ══ */}
         {tab === 'chat' && (() => {
