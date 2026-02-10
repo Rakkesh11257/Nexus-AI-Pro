@@ -20,14 +20,14 @@ const I2I_MODELS = [
   { id: 'qwen/qwen-image', name: 'Qwen Image', desc: 'LoRA + img2img', nsfw: false },
   { id: 'google/nano-banana-pro', name: 'Google Nano Banana Pro', desc: 'Google img2img', nsfw: false },
   { id: 'stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e4', name: 'Stable Diffusion 1.5', desc: 'Classic img2img', nsfw: false, useVersion: true },
-  { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'SDXL img2img', nsfw: true, useVersion: true },
+  { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'SDXL img2img', nsfw: false, useVersion: true },
 ];
 // I2V models with per-model config
 const I2V_MODELS = [
   { id: 'wan-video/wan-2.2-i2v-fast', name: 'Wan 2.2 I2V Fast', desc: '$0.05-0.145/vid', nsfw: true, price: '$0.05-0.145',
-    params: { prompt: true, last_frame: true, num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 20, default: 12 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true } },
+    params: { prompt: true, last_frame: true, num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 10, default: 8 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true } },
   { id: 'wavespeedai/wan-2.1-i2v-720p', name: 'Wan 2.1 I2V 720p', desc: 'Wavespeed NSFW', nsfw: true,
-    params: { prompt: true, last_frame: true, num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 20, default: 12 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true } },
+    params: { prompt: true, last_frame: true, num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 10, default: 8 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true } },
   { id: 'wan-video/wan-2.5-i2v', name: 'Wan 2.5 I2V', desc: 'HD + audio', nsfw: false,
     params: { prompt: true, duration: [5,10], resolution: ['720p','1080p'], negative_prompt: true, enable_prompt_expansion: true, seed: true } },
   { id: 'wan-video/wan-2.5-i2v-fast', name: 'Wan 2.5 I2V Fast', desc: 'Fast + audio', nsfw: false,
@@ -40,9 +40,9 @@ const I2V_MODELS = [
 // T2V models with per-model config
 const T2V_MODELS = [
   { id: 'wan-video/wan-2.2-t2v-fast', name: 'Wan 2.2 T2V Fast', desc: '$0.05-0.145/vid', nsfw: true, price: '$0.05-0.145',
-    params: { num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], aspect_ratio: ['16:9','9:16'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 20, default: 12 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true, optimize_prompt: true } },
+    params: { num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], aspect_ratio: ['16:9','9:16'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 10, default: 8 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true, optimize_prompt: true } },
   { id: 'wavespeedai/wan-2.1-t2v-720p', name: 'Wan 2.1 T2V 720p', desc: 'Wavespeed NSFW', nsfw: true,
-    params: { num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], aspect_ratio: ['16:9','9:16'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 20, default: 12 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true, optimize_prompt: true } },
+    params: { num_frames: { min: 81, max: 121, default: 81 }, resolution: ['480p','720p'], aspect_ratio: ['16:9','9:16'], fps: { min: 5, max: 30, default: 16 }, go_fast: true, sample_shift: { min: 1, max: 10, default: 8 }, seed: true, interpolate_output: true, disable_safety_checker: true, lora: true, optimize_prompt: true } },
   { id: 'wan-video/wan-2.5-t2v', name: 'Wan 2.5 T2V', desc: 'HD + audio', nsfw: false,
     params: { size: ['1280*720','720*1280','1920*1080','1080*1920'], duration: [5,10], negative_prompt: true, enable_prompt_expansion: true, seed: true } },
   { id: 'wan-video/wan-2.5-t2v-fast', name: 'Wan 2.5 T2V Fast', desc: 'Fastest + audio', nsfw: false,
@@ -482,10 +482,23 @@ function App() {
   const [transcribeOpts, setTranscribeOpts] = useState({});
   const [transcribeResult, setTranscribeResult] = useState('');
 
-  // UI
-  const [loading, setLoading] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState('');
-  const [error, setError] = useState('');
+  // UI — per-tab loading for concurrent generation
+  const [loadingTabs, setLoadingTabs] = useState({});
+  const loading = !!loadingTabs[tab]; // current tab loading state
+  const [loadingStatuses, setLoadingStatuses] = useState({});
+  const loadingStatus = loadingStatuses[tab] || '';
+  const [errors, setErrors] = useState({});
+  const error = errors[tab] || '';
+  // Tab-aware setters — read current tab, set per-tab state
+  const setLoading = (v) => setLoadingTabs(prev => ({ ...prev, [tab]: v }));
+  const setLoadingStatus = (v) => setLoadingStatuses(prev => ({ ...prev, [tab]: v }));
+  const setError = (v) => setErrors(prev => ({ ...prev, [tab]: v }));
+  // For async functions: bind tab name at call start so it persists across awaits
+  const bindTab = (t) => ({
+    setLoading: v => setLoadingTabs(p => ({...p, [t]: v})),
+    setStatus: v => setLoadingStatuses(p => ({...p, [t]: v})),
+    setErr: v => setErrors(p => ({...p, [t]: v})),
+  });
   const [results, setResults] = useState([]);
   const [viewerItem, setViewerItem] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -526,6 +539,22 @@ function App() {
     if (!user?.isPaid) { setShowPaywall(true); return false; }
     if (!keyValid) { setError('Please set your Replicate API key in Settings first.'); setShowSettings(true); return false; }
     return true;
+  };
+
+  // Helper: extract detailed error from Replicate API response
+  const parseApiError = async (res) => {
+    try {
+      const data = await res.json();
+      // Replicate 422 validation errors: { detail: "input.field: message" }
+      if (data.detail) {
+        if (typeof data.detail === 'string') return data.detail;
+        if (Array.isArray(data.detail)) return data.detail.map(d => d.msg || d.message || JSON.stringify(d)).join('; ');
+        if (typeof data.detail === 'object') return JSON.stringify(data.detail).replace(/[{}"]|\\n/g, ' ').trim();
+      }
+      if (data.error) return typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      if (data.title) return data.title;
+      return `API error (${res.status}): ${JSON.stringify(data).slice(0, 200)}`;
+    } catch { return `API error (${res.status})`; }
   };
 
   // ─── Generate Image ───
@@ -572,7 +601,7 @@ function App() {
         body: JSON.stringify(reqBody),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
@@ -661,7 +690,7 @@ function App() {
         body: JSON.stringify({ ...body, _model: i2iModel }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
@@ -774,7 +803,7 @@ function App() {
         body: JSON.stringify({ model: i2vModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
@@ -809,7 +838,7 @@ function App() {
         body: JSON.stringify({ model: t2vModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
@@ -877,7 +906,7 @@ function App() {
         body: JSON.stringify({ model: chatModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
@@ -1112,7 +1141,7 @@ function App() {
         body: JSON.stringify({ model: motionModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 3000));
@@ -1166,7 +1195,7 @@ function App() {
         body: JSON.stringify({ model: lipsyncModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 3000));
@@ -1221,7 +1250,7 @@ function App() {
         body: JSON.stringify({ model: transcribeModel, input }),
       });
       if (res.status === 403) { setShowPaywall(true); return; }
-      if (!res.ok) throw new Error((await res.json()).error || 'API request failed');
+      if (!res.ok) throw new Error(await parseApiError(res));
       let pred = await res.json();
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         setLoadingStatus(`${pred.status}...`); await new Promise(r => setTimeout(r, 2000));
@@ -1267,8 +1296,9 @@ function App() {
         {/* Tabs */}
         <div style={S.tabs}>
           {[{id:'image',icon:'🎨',label:'Text to Image'},{id:'i2i',icon:'🔄',label:'Img to Img'},{id:'i2v',icon:'🖼️',label:'Img to Video'},{id:'t2v',icon:'🎬',label:'Text to Video'},{id:'motion',icon:'🎭',label:'Motion'},{id:'lipsync',icon:'👄',label:'Lip Sync'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'AI Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '8px 12px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '8px 12px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
               {t.icon} {t.label}
+              {loadingTabs[t.id] && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#667eea', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
             </button>
           ))}
         </div>

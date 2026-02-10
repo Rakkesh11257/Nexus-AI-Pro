@@ -573,7 +573,7 @@ app.post('/api/replicate/predictions', requirePaid, async (req, res) => {
       body: JSON.stringify(body),
     });
     const data = await resp.json();
-    console.log('>>> Replicate status:', resp.status, data.id || data.detail || '');
+    console.log('>>> Replicate status:', resp.status, data.id || data.detail || data.error || '');
     res.status(resp.status).json(data);
   } catch (err) {
     console.error('Replicate create error:', err.message);
