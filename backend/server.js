@@ -26,8 +26,8 @@ const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: AW
 // ============================================
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_live_SCpCGFak928F7f';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sAaMXrCyXwMAVxIHfqgaQFA1';
-const PLAN_LIFETIME_PRICE = 500; // Rs 5 in paise (TEST - change to 299900 for production)
-const PLAN_MONTHLY_PRICE = 100;   // Rs 1 in paise (TEST - change to 49900 for production)
+const PLAN_LIFETIME_PRICE = 299900; // Rs 2999 in paise
+const PLAN_MONTHLY_PRICE = 49900;   // Rs 499 in paise
 
 const razorpay = new Razorpay({
   key_id: RAZORPAY_KEY_ID,
@@ -676,6 +676,175 @@ app.get('/api/replicate/predictions/:id', requirePaid, async (req, res) => {
   } catch (err) {
     console.error('Replicate poll error:', err.message);
     res.status(502).json({ error: 'Failed to poll prediction: ' + err.message });
+  }
+});
+
+// ============================================
+// TRAINED MODELS (DynamoDB persistence)
+// ============================================
+
+// Get user's trained models
+app.get('/api/trained-models', requirePaid, async (req, res) => {
+  try {
+    const authHeader = req.headers['x-auth-token'];
+    const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
+    const sub = userInfo.UserAttributes.find(a => a.Name === 'sub')?.Value;
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: sub } }));
+    res.json({ models: dbResult.Item?.trainedModels || [] });
+  } catch (err) {
+    console.error('Get trained models error:', err.message);
+    res.status(500).json({ error: 'Failed to get trained models' });
+  }
+});
+
+// Save a trained model
+app.post('/api/trained-models', requirePaid, async (req, res) => {
+  try {
+    const authHeader = req.headers['x-auth-token'];
+    const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
+    const sub = userInfo.UserAttributes.find(a => a.Name === 'sub')?.Value;
+    const { name, trigger, version, trainedAt } = req.body;
+    if (!name || !trigger) return res.status(400).json({ error: 'Name and trigger required' });
+
+    // Get existing models, append new one
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: sub } }));
+    const existing = dbResult.Item?.trainedModels || [];
+    // Avoid duplicates by name
+    const filtered = existing.filter(m => m.name !== name);
+    const updated = [{ name, trigger, version, trainedAt: trainedAt || new Date().toISOString() }, ...filtered];
+
+    await dynamoClient.send(new UpdateCommand({
+      TableName: DYNAMO_TABLE,
+      Key: { userId: sub },
+      UpdateExpression: 'SET trainedModels = :models',
+      ExpressionAttributeValues: { ':models': updated },
+    }));
+    console.log('Trained model saved for', sub, ':', name);
+    res.json({ success: true, models: updated });
+  } catch (err) {
+    console.error('Save trained model error:', err.message);
+    res.status(500).json({ error: 'Failed to save trained model' });
+  }
+});
+
+// Delete a trained model
+app.delete('/api/trained-models/:name', requirePaid, async (req, res) => {
+  try {
+    const authHeader = req.headers['x-auth-token'];
+    const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
+    const sub = userInfo.UserAttributes.find(a => a.Name === 'sub')?.Value;
+    const modelName = decodeURIComponent(req.params.name);
+
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: sub } }));
+    const existing = dbResult.Item?.trainedModels || [];
+    const updated = existing.filter(m => m.name !== modelName);
+
+    await dynamoClient.send(new UpdateCommand({
+      TableName: DYNAMO_TABLE,
+      Key: { userId: sub },
+      UpdateExpression: 'SET trainedModels = :models',
+      ExpressionAttributeValues: { ':models': updated },
+    }));
+    console.log('Trained model deleted for', sub, ':', modelName);
+    res.json({ success: true, models: updated });
+  } catch (err) {
+    console.error('Delete trained model error:', err.message);
+    res.status(500).json({ error: 'Failed to delete trained model' });
+  }
+});
+
+// ============================================
+// REPLICATE TRAINING API
+// ============================================
+
+// Start a LoRA training
+app.post('/api/replicate/trainings', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const { input, destination } = req.body;
+
+    // Use replicate/fast-flux-trainer
+    const url = 'https://api.replicate.com/v1/models/replicate/fast-flux-trainer/versions/f463fbfc97389e10a2f443a8a84b6953b1058eafbf0c9af4d84457ff07cb04db/trainings';
+    const body = { input, destination };
+
+    console.log('>>> Replicate Training POST:', url, 'destination:', destination);
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    console.log('>>> Replicate training status:', resp.status, data.id || data.detail || data.error || '');
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Replicate training error:', err.message);
+    res.status(502).json({ error: 'Failed to start training: ' + err.message });
+  }
+});
+
+// Poll training status
+app.get('/api/replicate/trainings/:id', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const resp = await fetch(`https://api.replicate.com/v1/trainings/${req.params.id}`, {
+      headers: { 'Authorization': apiKey },
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Replicate training poll error:', err.message);
+    res.status(502).json({ error: 'Failed to poll training: ' + err.message });
+  }
+});
+
+// Cancel training
+app.post('/api/replicate/trainings/:id/cancel', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const resp = await fetch(`https://api.replicate.com/v1/trainings/${req.params.id}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': apiKey },
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Replicate training cancel error:', err.message);
+    res.status(502).json({ error: 'Failed to cancel training: ' + err.message });
+  }
+});
+
+// Create a model (needed as training destination)
+app.post('/api/replicate/models', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const { owner, name, visibility, hardware, description } = req.body;
+
+    const resp = await fetch('https://api.replicate.com/v1/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
+      body: JSON.stringify({ owner, name, visibility: visibility || 'private', hardware: hardware || 'gpu-t4', description: description || 'NEXUS AI Pro trained LoRA model' }),
+    });
+    const data = await resp.json();
+    console.log('>>> Replicate model created:', resp.status, data.url || data.detail || '');
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Replicate model create error:', err.message);
+    res.status(502).json({ error: 'Failed to create model: ' + err.message });
+  }
+});
+
+// Get Replicate account info (to get username)
+app.get('/api/replicate/account', requirePaid, async (req, res) => {
+  try {
+    const apiKey = req.headers['authorization'];
+    const resp = await fetch('https://api.replicate.com/v1/account', {
+      headers: { 'Authorization': apiKey },
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    console.error('Replicate account error:', err.message);
+    res.status(502).json({ error: 'Failed to get account info: ' + err.message });
   }
 });
 

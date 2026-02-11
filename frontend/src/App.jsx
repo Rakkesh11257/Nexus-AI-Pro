@@ -4,17 +4,17 @@ const API_BASE = window.location.origin;
 
 // ─── Model Configs ───
 const IMAGE_MODELS = [
+  { id: 'prunaai/wan-2.2-image', name: 'Wan 2.2 Image', desc: 'Unrestricted T2I', maxSteps: 50, nsfw: true },
+  { id: 'bytedance/sdxl-lightning-4step:6f7a773af6fc3e8de9d5a3c00be77c17308914bf67772726aff83496ba1e3bbe', name: 'SDXL Lightning 4-Step', desc: 'Ultra fast SDXL (~2s)', maxSteps: 10, nsfw: true, useVersion: true },
+  { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'Stable Diffusion XL', maxSteps: 50, nsfw: true, useVersion: true },
   { id: 'black-forest-labs/flux-schnell', name: 'FLUX Schnell', desc: 'Fast (~2s)', maxSteps: 4, nsfw: false },
   { id: 'black-forest-labs/flux-dev', name: 'FLUX Dev', desc: 'High quality (~10s)', maxSteps: 50, nsfw: false },
   { id: 'black-forest-labs/flux-1.1-pro', name: 'FLUX 1.1 Pro', desc: 'Best quality (~15s)', maxSteps: 50, nsfw: false },
   { id: 'black-forest-labs/flux-1.1-pro-ultra', name: 'FLUX 1.1 Pro Ultra', desc: 'Ultra HD (~20s)', maxSteps: 50, nsfw: false },
   { id: 'google/nano-banana-pro', name: 'Google Nano Banana Pro', desc: 'Google T2I', maxSteps: 50, nsfw: false },
   { id: 'prunaai/flux-fast', name: 'FLUX Fast (Pruna)', desc: 'Speed optimized (~4s)', maxSteps: 28, nsfw: false },
-  { id: 'prunaai/wan-2.2-image', name: 'Wan 2.2 Image', desc: 'Wan T2I model', maxSteps: 50, nsfw: true },
   { id: 'ideogram-ai/ideogram-v3-quality', name: 'Ideogram V3 Quality', desc: 'Best text rendering', maxSteps: 50, nsfw: false },
   { id: 'stability-ai/stable-diffusion-3.5-large', name: 'SD 3.5 Large', desc: 'Stability AI latest', maxSteps: 50, nsfw: false },
-  { id: 'bytedance/sdxl-lightning-4step:6f7a773af6fc3e8de9d5a3c00be77c17308914bf67772726aff83496ba1e3bbe', name: 'SDXL Lightning 4-Step', desc: 'Ultra fast SDXL (~2s)', maxSteps: 10, nsfw: true, useVersion: true },
-  { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'Stable Diffusion XL', maxSteps: 50, nsfw: true, useVersion: true },
 ];
 const I2I_MODELS = [
   { id: 'qwen/qwen-image', name: 'Qwen Image', desc: 'LoRA + img2img', nsfw: false },
@@ -234,8 +234,8 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
   const [error, setError] = useState('');
 
   const plans = [
-    { id: 'lifetime', name: 'Lifetime', price: '₹5', priceNum: 5, desc: 'One-time payment', badge: 'BEST VALUE' },
-    { id: 'monthly', name: 'Monthly', price: '₹1', priceNum: 1, desc: 'Per month', badge: null },
+    { id: 'lifetime', name: 'Lifetime', price: '₹2,999', originalPrice: '₹9,999', priceNum: 2999, desc: 'One-time payment', badge: 'BEST VALUE' },
+    { id: 'monthly', name: 'Monthly', price: '₹499', originalPrice: '₹999', priceNum: 499, desc: 'Per month', badge: null },
   ];
 
   const handlePayment = async () => {
@@ -327,15 +327,21 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
                 transition: 'all 0.2s',
               }}>
                 {plan.badge && <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #667eea, #764ba2)', padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{plan.badge}</div>}
+                {plan.originalPrice && <div style={{ fontSize: 14, color: '#666', textDecoration: 'line-through', marginBottom: 2 }}>{plan.originalPrice}</div>}
                 <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{plan.price}</div>
                 <div style={{ fontSize: 13, color: '#888' }}>{plan.desc}</div>
               </div>
             ))}
           </div>
 
+          {/* Offer Deadline */}
+          <div style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, textAlign: 'center' }}>
+            <span style={{ fontSize: 13, color: '#eab308', fontWeight: 600 }}>⏰ Offer valid only till Feb 20, 2026</span>
+          </div>
+
           {/* Features */}
           <div style={{ textAlign: 'left', marginBottom: 20 }}>
-            {['All FLUX image models (Schnell, Dev, 1.1 Pro)', 'Wan 2.1 & Wavespeed video generation', 'MiniMax Video-01 text-to-video', 'Unlimited generations with your API key', selectedPlan === 'lifetime' ? 'Lifetime access & updates' : '30-day access, cancel anytime'].map(f => (
+            {['All FLUX image models (Schnell, Dev, 1.1 Pro)', 'Wan 2.2 & Wavespeed video generation', 'MiniMax Video-01 text-to-video', 'Train your own AI model with LoRA', 'Unlimited generations with your API key', selectedPlan === 'lifetime' ? 'Lifetime access & updates' : '30-day access, cancel anytime', 'Prices may increase in future — lock in now!'].map(f => (
               <div key={f} style={{ padding: '7px 0', borderBottom: '1px solid #1f2937', color: '#ccc', fontSize: 13 }}>
                 <span style={{ color: '#4ade80', marginRight: 8 }}>✓</span>{f}
               </div>
@@ -360,22 +366,58 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
 // ─── Settings Modal ───
 function SettingsModal({ apiKey, onSave, onClose }) {
   const [key, setKey] = useState(apiKey);
+  const [showSteps, setShowSteps] = useState(!apiKey);
   const trimmed = key.trim();
   const valid = trimmed.startsWith('r8_') && trimmed.length > 20;
   return (
     <div style={S.overlay} onClick={onClose}>
-      <div style={{ ...S.card, maxWidth: 460, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
+      <div style={{ ...S.card, maxWidth: 500, position: 'relative', margin: 0, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={S.closeBtn}>✕</button>
         <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>⚙ Settings</h2>
-        <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Configure your Replicate API key</p>
+        <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Your Replicate API key powers all AI generations</p>
+
         <div style={S.field}>
           <label style={S.label}>Replicate API Key</label>
           <input style={S.input} type="password" placeholder="r8_..." value={key} onChange={e => setKey(e.target.value)} />
-          <p style={{ fontSize: 12, color: valid ? '#4ade80' : '#888', marginTop: 4 }}>
-            {valid ? '✓ Valid key format' : 'Get your key from replicate.com/account/api-tokens'}
+          <p style={{ fontSize: 12, color: valid ? '#4ade80' : '#f87171', marginTop: 4 }}>
+            {valid ? '✓ Valid key format' : 'Enter your key starting with r8_'}
           </p>
         </div>
-        <button onClick={() => onSave(trimmed)} disabled={!valid} style={{ ...S.btn, opacity: valid ? 1 : 0.5 }}>Save Key</button>
+        <button onClick={() => onSave(trimmed)} disabled={!valid} style={{ ...S.btn, opacity: valid ? 1 : 0.5, marginBottom: 16 }}>Save Key</button>
+
+        <div style={{ borderTop: '1px solid #1f2937', paddingTop: 14 }}>
+          <p onClick={() => setShowSteps(!showSteps)} style={{ fontSize: 13, color: '#667eea', cursor: 'pointer', margin: '0 0 12px', fontWeight: 600 }}>
+            {showSteps ? '▼' : '▶'} {apiKey ? 'How to manage your API key' : 'How to get your API key'}
+          </p>
+
+          {showSteps && (
+            <div style={{ fontSize: 12.5, color: '#aaa', lineHeight: 1.8 }}>
+              <p style={{ color: '#fff', fontWeight: 600, margin: '0 0 8px' }}>🆕 New to Replicate? Create your key:</p>
+              <div style={{ background: '#0a0a18', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <p style={{ margin: '0 0 4px' }}>1. Go to <a href="https://replicate.com" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com</a> and sign up (free)</p>
+                <p style={{ margin: '0 0 4px' }}>2. Go to <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>Account → API Tokens</a></p>
+                <p style={{ margin: '0 0 4px' }}>3. Click <strong style={{ color: '#fff' }}>"Create Token"</strong>, copy the key (starts with <code style={{ background: '#1a1a2e', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>r8_</code>)</p>
+                <p style={{ margin: '0 0 4px' }}>4. Go to <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>Account → Billing</a></p>
+                <p style={{ margin: 0 }}>5. Add credits — minimum <strong style={{ color: '#fff' }}>$1</strong> to start (up to $10,000)</p>
+              </div>
+
+              <p style={{ color: '#fff', fontWeight: 600, margin: '0 0 8px' }}>🔑 Already have a key?</p>
+              <div style={{ background: '#0a0a18', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                <p style={{ margin: '0 0 4px' }}>• View your existing keys: <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com/account/api-tokens</a></p>
+                <p style={{ margin: 0 }}>• Check your balance & usage: <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com/account/billing</a></p>
+              </div>
+
+              <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: 10 }}>
+                <p style={{ margin: '0 0 4px', color: '#fbbf24', fontWeight: 600 }}>💡 How billing works</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• You only pay for what you generate — no monthly fees from Replicate</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Image generation: ~$0.003 - $0.05 per image (~₹1 or less)</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Video generation: ~$0.05 - $1.50 per video (~₹3 - ₹120)</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Model training: ~$1 - $3 per training (~₹85 - ₹250)</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>• $5 (₹420) credit can generate ~100-1000+ images</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -507,6 +549,15 @@ function App() {
   const [viewerItem, setViewerItem] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [downloadNotice, setDownloadNotice] = useState(false);
+
+  // ─── Training State ───
+  const [trainImages, setTrainImages] = useState([]);
+  const [trainTrigger, setTrainTrigger] = useState('');
+  const [trainModelName, setTrainModelName] = useState('');
+  const [trainSteps, setTrainSteps] = useState(1000);
+  const [trainStatus, setTrainStatus] = useState(null); // { id, status, logs, version }
+  const [trainHistory, setTrainHistory] = useState([]);
+  const [trainPolling, setTrainPolling] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('replicate_api_key') || '');
   const [history, setHistory] = useState(() => {
@@ -531,6 +582,15 @@ function App() {
           .catch(() => { localStorage.clear(); setAuthState('auth'); });
       });
   }, []);
+
+  // Load trained models from DynamoDB when user logs in
+  useEffect(() => {
+    if (!user?.user?.isPaid || !accessToken) return;
+    fetch(`${API_BASE}/api/trained-models`, { headers: { 'x-auth-token': accessToken } })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { if (data.models) setTrainHistory(data.models); })
+      .catch(() => {});
+  }, [user, accessToken]);
 
   useEffect(() => { localStorage.setItem('nexus_history', JSON.stringify(history)); }, [history]);
 
@@ -591,10 +651,24 @@ function App() {
       else { input.num_inference_steps = steps; input.guidance_scale = guidance; }
       if (seed) input.seed = parseInt(seed);
 
-      // Version-based models (SDXL, SD 1.5 etc) need version field
+      // Check if this is a trained model
+      const trainedModel = trainHistory.find(m => m.name === model);
+      if (trainedModel) {
+        // Trained LoRA models: override with FLUX-compatible params
+        input.num_inference_steps = steps || 28;
+        input.guidance_scale = guidance || 3.5;
+        input.disable_safety_checker = true;
+        input.output_format = 'png';
+      }
       const curModel = IMAGE_MODELS.find(m => m.id === model);
       let reqBody;
-      if (curModel?.useVersion && model.includes(':')) {
+      if (trainedModel && trainedModel.version) {
+        // Trained LoRA model: use version hash
+        reqBody = { version: trainedModel.version, input };
+      } else if (trainedModel) {
+        // Trained model without version: use model name
+        reqBody = { model, input };
+      } else if (curModel?.useVersion && model.includes(':')) {
         const version = model.split(':')[1];
         reqBody = { version, input };
       } else {
@@ -1319,6 +1393,180 @@ function App() {
 
   const deleteHistoryItem = (type, idx) => setHistory(prev => ({ ...prev, [type]: prev[type].filter((_, i) => i !== idx) }));
 
+  // ─── Training Functions ───
+  const handleTrainImages = (e) => {
+    const files = Array.from(e.target.files);
+    const promises = files.map(f => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: f.name, data: reader.result, size: f.size });
+      reader.readAsDataURL(f);
+    }));
+    Promise.all(promises).then(imgs => setTrainImages(prev => [...prev, ...imgs]));
+  };
+
+  const startTraining = async () => {
+    if (!canGenerate()) return;
+    if (trainImages.length < 5) { setError('Please upload at least 5 images for training.'); return; }
+    if (!trainTrigger.trim()) { setError('Please enter a trigger word.'); return; }
+    if (!trainModelName.trim()) { setError('Please enter a model name.'); return; }
+
+    let logLines = ['Initializing...'];
+    const log = (msg) => { logLines = [...logLines, msg]; setTrainStatus(prev => ({ ...(prev || {}), logs: logLines.join('\n'), status: prev?.status || 'starting' })); };
+    setTrainStatus({ id: null, status: 'starting', logs: 'Initializing...', version: null, destination: '' });
+    setTrainPolling(true);
+
+    try {
+      // Step 1: Get Replicate username
+      log('Step 1/4: Getting Replicate account info...');
+      console.log('[Train] Step 1: Fetching account...');
+      const acctResp = await fetch(`${API_BASE}/api/replicate/account`, {
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+      });
+      console.log('[Train] Account response:', acctResp.status);
+      const acctData = await acctResp.json();
+      console.log('[Train] Account data:', acctData);
+      if (!acctResp.ok) throw new Error(acctData.error || acctData.detail || 'Failed to get account. Check your API key.');
+      const username = acctData.username;
+      log(`✅ Account: ${username}`);
+
+      // Step 2: Create destination model
+      const modelSlug = trainModelName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+      log(`Step 2/4: Creating model ${username}/${modelSlug}...`);
+      console.log('[Train] Step 2: Creating model...');
+      const modelResp = await fetch(`${API_BASE}/api/replicate/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        body: JSON.stringify({ owner: username, name: modelSlug, visibility: 'private', hardware: 'gpu-t4' }),
+      });
+      console.log('[Train] Model response:', modelResp.status);
+      const modelData = await modelResp.json();
+      console.log('[Train] Model data:', modelData);
+      if (!modelResp.ok && modelResp.status !== 409) throw new Error(modelData.error || modelData.detail || 'Failed to create model');
+      log(modelResp.status === 409 ? '✅ Model already exists, reusing.' : '✅ Model created successfully.');
+
+      // Step 3: Upload training images as a zip
+      log(`Step 3/4: Zipping ${trainImages.length} images...`);
+      console.log('[Train] Step 3: Creating zip...');
+      const zipBlob = await createTrainingZip(trainImages);
+      const sizeMB = (zipBlob.size / 1024 / 1024).toFixed(1);
+      log(`Zip created: ${sizeMB}MB. Uploading...`);
+      console.log('[Train] Zip size:', sizeMB, 'MB. Uploading...');
+      const zipBase64 = await blobToBase64(zipBlob);
+
+      const uploadResp = await fetch(`${API_BASE}/api/replicate/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        body: JSON.stringify({ data: zipBase64, content_type: 'application/zip', filename: 'training_images.zip' }),
+      });
+      console.log('[Train] Upload response:', uploadResp.status);
+      const uploadData = await uploadResp.json();
+      console.log('[Train] Upload data:', uploadData);
+      if (!uploadResp.ok) throw new Error(uploadData.error || 'Failed to upload training images');
+      log(`✅ Images uploaded successfully`);
+
+      // Step 4: Start training
+      log('Step 4/4: Starting LoRA training...');
+      console.log('[Train] Step 4: Starting training...');
+      const trainResp = await fetch(`${API_BASE}/api/replicate/trainings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        body: JSON.stringify({
+          destination: `${username}/${modelSlug}`,
+          input: {
+            input_images: uploadData.url,
+            trigger_word: trainTrigger.trim(),
+            training_steps: trainSteps,
+          },
+        }),
+      });
+      console.log('[Train] Training response:', trainResp.status);
+      const trainData = await trainResp.json();
+      console.log('[Train] Training data:', trainData);
+      if (!trainResp.ok) throw new Error(trainData.error || trainData.detail || 'Failed to start training');
+
+      log(`✅ Training started! ID: ${trainData.id}`);
+      log('🔄 Polling for progress every 10 seconds...');
+      setTrainStatus({ id: trainData.id, status: trainData.status || 'processing', logs: logLines.join('\n') + '\n✅ Training started! ID: ' + trainData.id + '\n🔄 Polling...', version: null, destination: `${username}/${modelSlug}` });
+
+      // Start polling
+      pollTraining(trainData.id, `${username}/${modelSlug}`);
+      return;
+    } catch (err) {
+      console.error('[Train] ERROR:', err);
+      setError(err.message);
+      logLines.push(`❌ ERROR: ${err.message}`);
+      setTrainStatus(prev => ({ ...(prev || {}), status: 'failed', logs: logLines.join('\n') }));
+      setTrainPolling(false);
+    }
+  };
+
+  const pollTraining = async (trainingId, destination) => {
+    const headers = { 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken };
+    const poll = async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/api/replicate/trainings/${trainingId}`, { headers });
+        const data = await resp.json();
+        const logs = data.logs || '';
+        const lastLines = logs.split('\n').filter(Boolean).slice(-5).join('\n');
+        setTrainStatus(prev => ({ ...prev, status: data.status, logs: lastLines, version: data.output?.version || null }));
+
+        if (data.status === 'succeeded') {
+          const newModel = { name: destination, trigger: trainTrigger, version: data.output?.version, trainedAt: new Date().toISOString() };
+          // Save to DynamoDB
+          fetch(`${API_BASE}/api/trained-models`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+            body: JSON.stringify(newModel),
+          }).then(r => r.json()).then(d => { if (d.models) setTrainHistory(d.models); }).catch(() => {});
+          setTrainHistory(prev => [newModel, ...prev.filter(m => m.name !== destination)]);
+          setTrainPolling(false);
+          return;
+        }
+        if (data.status === 'failed' || data.status === 'canceled') {
+          setTrainPolling(false);
+          setError(`Training ${data.status}: ${data.error || 'Unknown error'}`);
+          return;
+        }
+        // Still processing, poll again in 10s
+        setTimeout(poll, 10000);
+      } catch (err) {
+        setTimeout(poll, 15000); // Retry on network error
+      }
+    };
+    poll();
+  };
+
+  // Helper: Create a ZIP from images using raw approach
+  const createTrainingZip = async (images) => {
+    // Minimal ZIP creation without external library
+    const files = images.map((img, i) => {
+      const ext = img.name.split('.').pop() || 'jpg';
+      const base64 = img.data.includes(',') ? img.data.split(',')[1] : img.data;
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+      return { name: `image_${i + 1}.${ext}`, data: bytes };
+    });
+
+    // Use JSZip if available, otherwise create simple concatenated tar-like format
+    // Actually, let's dynamically load JSZip
+    if (!window.JSZip) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      document.head.appendChild(script);
+      await new Promise((resolve, reject) => { script.onload = resolve; script.onerror = reject; });
+    }
+    const zip = new window.JSZip();
+    files.forEach(f => zip.file(f.name, f.data));
+    return await zip.generateAsync({ type: 'blob' });
+  };
+
+  const blobToBase64 = (blob) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+
   // ─── Render ───
   if (authState === 'loading') return <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid #333', borderTopColor: '#667eea', borderRadius: '50%' }} /></div>;
   if (authState === 'auth') return <AuthScreen onAuth={handleAuth} />;
@@ -1345,7 +1593,7 @@ function App() {
         {/* Tabs */}
         <div style={{ position: 'relative', marginBottom: 16 }}>
           <div style={S.tabs} className="hide-scrollbar">
-            {[{id:'image',icon:'🎨',label:'Txt2Img'},{id:'i2i',icon:'🔄',label:'Img2Img'},{id:'i2v',icon:'🖼️',label:'Img2Vid'},{id:'t2v',icon:'🎬',label:'Txt2Vid'},{id:'motion',icon:'🎭',label:'Motion'},{id:'audio',icon:'🔊',label:'Audio'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'Chat'},{id:'history',icon:'📂',label:'History'}].map(t => (
+            {[{id:'image',icon:'🎨',label:'Txt2Img'},{id:'i2i',icon:'🔄',label:'Img2Img'},{id:'i2v',icon:'🖼️',label:'Img2Vid'},{id:'t2v',icon:'🎬',label:'Txt2Vid'},{id:'motion',icon:'🎭',label:'Motion'},{id:'audio',icon:'🔊',label:'Audio'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'Chat'},{id:'train',icon:'🧪',label:'Train'},{id:'history',icon:'📂',label:'History'}].map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '7px 10px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
                 {t.icon} {t.label}
                 {jobs.some(j => j.tab === t.id && !j.done) && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#667eea', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
@@ -1382,6 +1630,8 @@ function App() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <select value={model} onChange={e => { setModel(e.target.value); if (e.target.value.includes('schnell')) setSteps(4); else setSteps(20); }} style={{ ...S.select, flex: '1 1 auto', minWidth: 0, width: '100%' }}>
                 {IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name} — {m.desc}{m.nsfw ? ' 🔞 NSFW' : ''}</option>)}
+                {trainHistory.length > 0 && <option disabled>── Your Trained Models ──</option>}
+                {trainHistory.map(m => <option key={m.name} value={m.name}>🧪 {m.name} — Trigger: {m.trigger}</option>)}
               </select>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {ASPECTS.map(a => (
@@ -2013,6 +2263,98 @@ function App() {
           </div>
           );
         })()}
+
+        {/* ══ TRAIN TAB ══ */}
+        {tab === 'train' && (
+          <div>
+            <div style={{ background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
+              🧪 <strong style={{ color: '#fff' }}>Train Your Own LoRA Model</strong> — Upload 10-20 images of a subject (person, style, object), set a trigger word, and train a custom FLUX LoRA model. Training takes ~5-10 minutes using Replicate's fast trainer and costs ~$1-3 on your Replicate account.
+            </div>
+
+            {/* Model Name */}
+            <div style={S.field}>
+              <label style={S.label}>Model Name</label>
+              <input style={S.input} placeholder="e.g. my-face-model" value={trainModelName} onChange={e => setTrainModelName(e.target.value)} />
+              <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Lowercase, no spaces. This creates a model on your Replicate account.</p>
+            </div>
+
+            {/* Trigger Word */}
+            <div style={S.field}>
+              <label style={S.label}>Trigger Word</label>
+              <input style={S.input} placeholder="e.g. RKKSH, MYDOG, ARTSTYLE" value={trainTrigger} onChange={e => setTrainTrigger(e.target.value)} />
+              <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Use this word in prompts to activate your model. Pick something unique (not a real word).</p>
+            </div>
+
+            {/* Training Steps */}
+            <div style={S.field}>
+              <label style={S.label}>Training Steps: {trainSteps}</label>
+              <input type="range" min={500} max={4000} step={100} value={trainSteps} onChange={e => setTrainSteps(Number(e.target.value))} style={{ width: '100%' }} />
+              <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>More steps = better quality but longer training. 1000-1500 is recommended.</p>
+            </div>
+
+            {/* Image Upload */}
+            <div style={S.field}>
+              <label style={S.label}>Training Images ({trainImages.length} uploaded)</label>
+              <label style={{ display: 'block', padding: '24px 16px', background: '#0d0d1a', border: '2px dashed #333', borderRadius: 10, textAlign: 'center', cursor: 'pointer', color: '#888', fontSize: 13 }}>
+                📤 Click to select images (10-20 recommended)
+                <input type="file" accept="image/*" multiple onChange={handleTrainImages} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            {/* Image Previews */}
+            {trainImages.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {trainImages.map((img, i) => (
+                  <div key={i} style={{ position: 'relative', width: 72, height: 72, borderRadius: 8, overflow: 'hidden', border: '1px solid #333' }}>
+                    <img src={img.data} alt={img.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button onClick={() => setTrainImages(prev => prev.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.7)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Start Training Button */}
+            <button onClick={startTraining} disabled={loading || trainPolling} style={{ ...S.generateBtn, opacity: (loading || trainPolling) ? 0.5 : 1, marginBottom: 16 }}>
+              {trainPolling ? '⏳ Training in Progress...' : '🧪 Start Training'}
+            </button>
+
+            {/* Training Status */}
+            {trainStatus && (
+              <div style={{ background: '#111827', borderRadius: 10, padding: 16, border: '1px solid #1f2937', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>Training Status</span>
+                  <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: trainStatus.status === 'succeeded' ? 'rgba(74,222,128,0.15)' : trainStatus.status === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(102,126,234,0.15)', color: trainStatus.status === 'succeeded' ? '#4ade80' : trainStatus.status === 'failed' ? '#ef4444' : '#667eea' }}>
+                    {trainStatus.status}
+                  </span>
+                </div>
+                {trainStatus.logs && <pre style={{ fontSize: 11, color: '#888', background: '#0a0a18', borderRadius: 6, padding: 10, overflow: 'auto', maxHeight: 200, margin: '8px 0', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{trainStatus.logs}</pre>}
+                {trainStatus.status === 'succeeded' && (
+                  <div style={{ marginTop: 8, padding: 10, background: 'rgba(74,222,128,0.08)', borderRadius: 8, border: '1px solid rgba(74,222,128,0.2)' }}>
+                    <p style={{ fontSize: 13, color: '#4ade80', margin: 0 }}>✅ Training complete! Your model <strong>{trainStatus.destination}</strong> is ready.</p>
+                    <p style={{ fontSize: 12, color: '#888', margin: '6px 0 0' }}>Go to <strong style={{ color: '#667eea', cursor: 'pointer' }} onClick={() => setTab('image')}>Text to Image</strong> tab → select your model from the dropdown → use trigger word <strong style={{ color: '#fff' }}>"{trainTrigger}"</strong> in your prompt.</p>
+                    <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Example: "{trainTrigger} as an astronaut on Mars, cinematic lighting"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Trained Models History */}
+            {trainHistory.length > 0 && (
+              <div>
+                <h3 style={{ fontSize: 14, color: '#aaa', marginBottom: 10 }}>🎯 Your Trained Models</h3>
+                {trainHistory.map((m, i) => (
+                  <div key={i} style={{ background: '#111827', borderRadius: 8, padding: 12, border: '1px solid #1f2937', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ fontSize: 13, color: '#fff', margin: 0, fontWeight: 600 }}>{m.name}</p>
+                      <p style={{ fontSize: 11, color: '#888', margin: '4px 0 0' }}>Trigger: <strong style={{ color: '#667eea' }}>{m.trigger}</strong> · {new Date(m.trainedAt).toLocaleDateString()}</p>
+                    </div>
+                    <button onClick={() => { fetch(`${API_BASE}/api/trained-models/${encodeURIComponent(m.name)}`, { method: 'DELETE', headers: { 'x-auth-token': accessToken } }).then(r => r.json()).then(d => { if (d.models) setTrainHistory(d.models); }).catch(() => {}); setTrainHistory(prev => prev.filter((_, j) => j !== i)); }} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}>🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ══ HISTORY TAB ══ */}
         {tab === 'history' && (
