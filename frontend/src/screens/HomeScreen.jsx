@@ -68,7 +68,7 @@ const CATEGORIES = [
     color: '#8b5cf6',
     cover: '/samples/chat-cover.mp4',
     subTools: [
-      { id: 'ai-chat', label: 'AI Chat', desc: 'GPT-5, Gemini, Claude & more', media: '/samples/chat-cover.mp4', tab: 'chat' },
+      { id: 'ai-chat', label: 'AI Chat', desc: 'GPT-5, Gemini, Claude & more', media: '/samples/ai-chat.mp4', tab: 'chat' },
     ],
   },
 ];
