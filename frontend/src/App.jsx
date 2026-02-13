@@ -1715,7 +1715,7 @@ function App() {
         </div>
       </header>
 
-      <div style={S.container}>
+      <div style={screen === 'home' ? { ...S.container, maxWidth: '100%', padding: '0' } : S.container}>
         {/* Home Screen */}
         {screen === 'home' && (
           <HomeScreen

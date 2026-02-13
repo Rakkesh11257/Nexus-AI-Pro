@@ -78,9 +78,9 @@ function PlaceholderImage({ src, color, icon, style }) {
       {failed && (
         <div style={{
           width: '100%', height: '100%',
-          background: `linear-gradient(145deg, ${color}20 0%, ${color}08 40%, #0a0a12 100%)`,
+          background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 52, opacity: 0.5,
+          fontSize: 56, opacity: 0.45,
         }}>
           {icon}
         </div>
@@ -95,15 +95,15 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
   const [hoveredSuite, setHoveredSuite] = useState(null);
 
   return (
-    <div style={{ padding: '0 4px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: 0, width: '100%' }}>
 
       {/* ── Hero ── */}
-      <div style={{ textAlign: 'center', padding: '48px 16px 36px' }}>
+      <div style={{ textAlign: 'center', padding: '36px 16px 28px' }}>
         <h1 style={{
-          fontSize: 'clamp(30px, 5vw, 48px)',
+          fontSize: 'clamp(32px, 5vw, 52px)',
           fontWeight: 800,
           color: '#f0f0f5',
-          lineHeight: 1.15,
+          lineHeight: 1.12,
           letterSpacing: '-0.03em',
           margin: 0,
           fontFamily: "'Outfit', sans-serif",
@@ -112,19 +112,21 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
           to <span style={{ color: '#22d47b' }}>create</span> today?
         </h1>
         <p style={{
-          color: '#666', fontSize: 15, marginTop: 12, fontWeight: 400,
-          letterSpacing: '0.01em',
+          color: '#555', fontSize: 15, marginTop: 10, fontWeight: 400,
+          letterSpacing: '0.01em', margin: '10px 0 0',
         }}>
           Unrestricted AI generation — images, videos, audio & more
         </p>
       </div>
 
-      {/* ── Category Cards Row ── */}
+      {/* ── Category Cards — full width, 5 equal columns ── */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 14,
-        marginBottom: 40,
+        display: 'flex',
+        gap: 10,
+        padding: '0 12px',
+        marginBottom: 36,
+        width: '100%',
+        boxSizing: 'border-box',
       }}>
         {CATEGORIES.map(cat => {
           const isHovered = hoveredCard === cat.id;
@@ -135,44 +137,41 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
               onMouseEnter={() => setHoveredCard(cat.id)}
               onMouseLeave={() => setHoveredCard(null)}
               style={{
+                flex: '1 1 0',
+                minWidth: 0,
                 position: 'relative',
                 borderRadius: 16,
                 overflow: 'hidden',
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+                transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
                 border: `1.5px solid ${isHovered ? cat.color + '50' : 'rgba(255,255,255,0.06)'}`,
                 boxShadow: isHovered
-                  ? `0 12px 40px ${cat.color}20, 0 0 0 1px ${cat.color}15`
-                  : '0 2px 8px rgba(0,0,0,0.2)',
-                background: '#0d0f14',
+                  ? `0 16px 48px ${cat.color}25, inset 0 -1px 0 ${cat.color}30`
+                  : '0 2px 8px rgba(0,0,0,0.3)',
+                background: '#0c0e13',
+                aspectRatio: '3 / 4',
               }}
             >
-              {/* Image area */}
-              <div style={{ height: 200, overflow: 'hidden', position: 'relative' }}>
+              {/* Full-card image */}
+              <div style={{ position: 'absolute', inset: 0 }}>
                 <PlaceholderImage src={cat.image} color={cat.color} icon={cat.icon} />
-                {/* Glow line at bottom of image on hover */}
-                <div style={{
-                  position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 2,
-                  background: isHovered ? cat.color : 'transparent',
-                  boxShadow: isHovered ? `0 0 20px ${cat.color}80` : 'none',
-                  transition: 'all 0.3s ease',
-                  borderRadius: 2,
-                }} />
               </div>
 
-              {/* Bottom gradient + label */}
+              {/* Bottom gradient overlay with text */}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                background: 'linear-gradient(transparent 0%, rgba(0,0,0,0.75) 40%, rgba(0,0,0,0.92) 100%)',
-                padding: '48px 16px 16px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 50%, transparent 100%)',
+                padding: '60px 14px 16px',
+                display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
               }}>
                 <div style={{
-                  fontSize: 17,
+                  fontSize: 'clamp(15px, 1.4vw, 20px)',
                   fontWeight: 700,
                   color: '#fff',
                   marginBottom: 4,
                   fontFamily: "'Outfit', sans-serif",
+                  textAlign: 'center',
                   background: isHovered ? `linear-gradient(135deg, ${cat.color}, #fff)` : 'none',
                   WebkitBackgroundClip: isHovered ? 'text' : 'unset',
                   WebkitTextFillColor: isHovered ? 'transparent' : '#fff',
@@ -180,19 +179,33 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
                 }}>
                   {cat.label}
                 </div>
-                <div style={{ fontSize: 12, color: '#888', lineHeight: 1.35 }}>
+                <div style={{
+                  fontSize: 'clamp(10px, 0.9vw, 13px)',
+                  color: '#999',
+                  lineHeight: 1.35,
+                  textAlign: 'center',
+                }}>
                   {cat.desc}
                 </div>
               </div>
+
+              {/* Hover glow at bottom edge */}
+              {isHovered && (
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+                  background: `linear-gradient(90deg, transparent, ${cat.color}, transparent)`,
+                  boxShadow: `0 0 20px ${cat.color}60`,
+                }} />
+              )}
             </div>
           );
         })}
       </div>
 
       {/* ── NEXUS AI Suite (sub-tools grid) ── */}
-      <div style={{ marginBottom: 40 }}>
+      <div style={{ padding: '0 16px', marginBottom: 40 }}>
         <h2 style={{
-          fontSize: 22, fontWeight: 700, color: '#f0f0f5', margin: '0 0 18px',
+          fontSize: 22, fontWeight: 700, color: '#f0f0f5', margin: '0 0 16px',
           fontFamily: "'Outfit', sans-serif",
         }}>
           NEXUS AI Suite
@@ -200,8 +213,8 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: 12,
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 10,
         }}>
           {CATEGORIES.flatMap(cat =>
             cat.subTools.map(tool => {
@@ -215,10 +228,10 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 14,
-                    padding: '12px 14px',
-                    background: isHovered ? `rgba(${hexToRgb(cat.color)}, 0.04)` : 'rgba(255,255,255,0.015)',
-                    border: `1px solid ${isHovered ? cat.color + '35' : 'rgba(255,255,255,0.05)'}`,
+                    gap: 12,
+                    padding: '10px 12px',
+                    background: isHovered ? `rgba(${hexToRgb(cat.color)}, 0.05)` : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${isHovered ? cat.color + '35' : 'rgba(255,255,255,0.06)'}`,
                     borderRadius: 14,
                     cursor: 'pointer',
                     transition: 'all 0.25s ease',
@@ -226,28 +239,28 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
                 >
                   {/* Thumbnail */}
                   <div style={{
-                    width: 80, height: 80, borderRadius: 12, overflow: 'hidden',
+                    width: 72, height: 72, borderRadius: 12, overflow: 'hidden',
                     flexShrink: 0, background: '#0a0a12',
-                    border: `1px solid ${isHovered ? cat.color + '25' : 'rgba(255,255,255,0.04)'}`,
+                    border: `1px solid ${isHovered ? cat.color + '20' : 'rgba(255,255,255,0.04)'}`,
                     transition: 'border-color 0.25s ease',
                   }}>
                     <PlaceholderImage src={tool.image} color={cat.color} icon={cat.icon} />
                   </div>
                   {/* Text */}
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
                       fontSize: 14, fontWeight: 600,
                       color: isHovered ? cat.color : '#ddd',
-                      marginBottom: 3,
+                      marginBottom: 2,
                       transition: 'color 0.2s ease',
                       fontFamily: "'Outfit', sans-serif",
                     }}>
                       {tool.label}
                     </div>
                     <div style={{
-                      fontSize: 12, color: '#666', lineHeight: 1.35,
+                      fontSize: 12, color: '#666', lineHeight: 1.3,
                       overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      whiteSpace: 'nowrap',
                     }}>
                       {tool.desc}
                     </div>
