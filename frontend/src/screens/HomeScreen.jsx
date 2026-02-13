@@ -8,7 +8,7 @@ const CATEGORIES = [
     desc: 'Create, edit, and explore looks.',
     icon: '🎨',
     color: '#22d47b',
-    image: '/samples/image-cover.jpg',
+    cover: '/samples/image-cover.jpg',
     subTools: [
       { id: 'create-image', label: 'Create Image', desc: 'Generate images from text prompts', image: '/samples/create-image.jpg', tab: 'image' },
       { id: 'edit-image', label: 'Edit Image', desc: 'Transform images with AI', image: '/samples/edit-image.jpg', tab: 'i2i' },
@@ -20,7 +20,7 @@ const CATEGORIES = [
     desc: 'Turn prompts and visuals into clips.',
     icon: '🎬',
     color: '#a855f7',
-    image: '/samples/video-cover.jpg',
+    cover: '/samples/video-cover.mp4',
     subTools: [
       { id: 'create-video', label: 'Create Video', desc: 'Generate videos from text', image: '/samples/create-video.jpg', tab: 't2v' },
       { id: 'animate-image', label: 'Animate Image', desc: 'Turn images into video', image: '/samples/animate-image.jpg', tab: 'i2v' },
@@ -33,7 +33,7 @@ const CATEGORIES = [
     desc: 'Give your worlds a voice.',
     icon: '🔊',
     color: '#f59e0b',
-    image: '/samples/audio-cover.jpg',
+    cover: '/samples/audio-cover.mp4',
     subTools: [
       { id: 'text-to-speech', label: 'Text to Speech', desc: 'Convert text to natural speech', image: '/samples/tts.jpg', tab: 'audio' },
       { id: 'music-gen', label: 'Music Generation', desc: 'Create AI music', image: '/samples/music-gen.jpg', tab: 'audio' },
@@ -45,7 +45,7 @@ const CATEGORIES = [
     desc: 'Convert speech to text instantly.',
     icon: '🎙️',
     color: '#ef4444',
-    image: '/samples/transcribe-cover.jpg',
+    cover: '/samples/transcribe-cover.mp4',
     subTools: [
       { id: 'transcribe-audio', label: 'Transcribe Audio', desc: 'Speech to text with AI', image: '/samples/transcribe.jpg', tab: 'transcribe' },
     ],
@@ -56,31 +56,71 @@ const CATEGORIES = [
     desc: 'Train and reuse your cast.',
     icon: '🧪',
     color: '#06b6d4',
-    image: '/samples/character-cover.jpg',
+    cover: '/samples/character-cover.mp4',
     subTools: [
       { id: 'train-model', label: 'Train Model', desc: 'Create a custom AI model', image: '/samples/train.jpg', tab: 'train' },
     ],
   },
 ];
 
-// ─── Placeholder image (gradient fallback when no sample image) ───
+// ─── Media cover: supports image or video, with gradient fallback ───
+function CoverMedia({ src, color, icon, style }) {
+  const [failed, setFailed] = useState(false);
+  const isVideo = src && (src.endsWith('.mp4') || src.endsWith('.webm'));
+
+  const fallback = (
+    <div style={{
+      width: '100%', height: '100%',
+      background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 56, opacity: 0.45,
+    }}>
+      {icon}
+    </div>
+  );
+
+  if (failed || !src) return <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>{fallback}</div>;
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
+      {isVideo ? (
+        <video
+          src={src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <img
+          src={src} alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Thumbnail placeholder (image only, for sub-tools) ───
 function PlaceholderImage({ src, color, icon, style }) {
   const [failed, setFailed] = useState(false);
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
-      {!failed && (
+      {!failed && src ? (
         <img
           src={src} alt=""
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           onError={() => setFailed(true)}
         />
-      )}
-      {failed && (
+      ) : (
         <div style={{
           width: '100%', height: '100%',
           background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 56, opacity: 0.45,
+          fontSize: 28, opacity: 0.45,
         }}>
           {icon}
         </div>
@@ -153,9 +193,9 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
                 aspectRatio: '3 / 4',
               }}
             >
-              {/* Full-card image */}
+              {/* Full-card cover (image or video) */}
               <div style={{ position: 'absolute', inset: 0 }}>
-                <PlaceholderImage src={cat.image} color={cat.color} icon={cat.icon} />
+                <CoverMedia src={cat.cover} color={cat.color} icon={cat.icon} />
               </div>
 
               {/* Bottom gradient overlay with text */}
