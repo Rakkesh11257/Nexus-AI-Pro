@@ -10,8 +10,8 @@ const CATEGORIES = [
     color: '#22d47b',
     cover: '/samples/image-cover.jpg',
     subTools: [
-      { id: 'create-image', label: 'Create Image', desc: 'Generate images from text prompts', image: '/samples/create-image.jpg', tab: 'image' },
-      { id: 'edit-image', label: 'Edit Image', desc: 'Transform images with AI', image: '/samples/edit-image.jpg', tab: 'i2i' },
+      { id: 'create-image', label: 'Create Image', desc: 'Generate images from text prompts', media: '/samples/create-image.mp4', tab: 'image' },
+      { id: 'edit-image', label: 'Edit Image', desc: 'Transform images with AI', media: '/samples/edit-image.mp4', tab: 'i2i' },
     ],
   },
   {
@@ -22,9 +22,9 @@ const CATEGORIES = [
     color: '#a855f7',
     cover: '/samples/video-cover.mp4',
     subTools: [
-      { id: 'create-video', label: 'Create Video', desc: 'Generate videos from text', image: '/samples/create-video.jpg', tab: 't2v' },
-      { id: 'animate-image', label: 'Animate Image', desc: 'Turn images into video', image: '/samples/animate-image.jpg', tab: 'i2v' },
-      { id: 'motion-sync', label: 'Motion Sync', desc: 'Transfer motion between videos', image: '/samples/motion-sync.jpg', tab: 'motion' },
+      { id: 'create-video', label: 'Create Video', desc: 'Generate videos from text', media: '/samples/create-video.mp4', tab: 't2v' },
+      { id: 'animate-image', label: 'Animate Image', desc: 'Turn images into video', media: '/samples/animate-image.mp4', tab: 'i2v' },
+      { id: 'motion-sync', label: 'Motion Sync', desc: 'Transfer motion between videos', media: '/samples/motion-sync.mp4', tab: 'motion' },
     ],
   },
   {
@@ -35,8 +35,7 @@ const CATEGORIES = [
     color: '#f59e0b',
     cover: '/samples/audio-cover.mp4',
     subTools: [
-      { id: 'text-to-speech', label: 'Text to Speech', desc: 'Convert text to natural speech', image: '/samples/tts.jpg', tab: 'audio' },
-      { id: 'music-gen', label: 'Music Generation', desc: 'Create AI music', image: '/samples/music-gen.jpg', tab: 'audio' },
+      { id: 'music-gen', label: 'Music Generation', desc: 'Create AI music & sound', media: '/samples/music-gen.mp4', tab: 'audio' },
     ],
   },
   {
@@ -47,7 +46,7 @@ const CATEGORIES = [
     color: '#ef4444',
     cover: '/samples/transcribe-cover.mp4',
     subTools: [
-      { id: 'transcribe-audio', label: 'Transcribe Audio', desc: 'Speech to text with AI', image: '/samples/transcribe.jpg', tab: 'transcribe' },
+      { id: 'transcribe-audio', label: 'Transcribe Audio', desc: 'Speech to text with AI', media: '/samples/transcribe.mp4', tab: 'transcribe' },
     ],
   },
   {
@@ -58,7 +57,7 @@ const CATEGORIES = [
     color: '#06b6d4',
     cover: '/samples/character-cover.mp4',
     subTools: [
-      { id: 'train-model', label: 'Train Model', desc: 'Create a custom AI model', image: '/samples/train.jpg', tab: 'train' },
+      { id: 'train-model', label: 'Train Model', desc: 'Create a custom AI model', media: '/samples/train.mp4', tab: 'train' },
     ],
   },
 ];
@@ -68,28 +67,20 @@ function CoverMedia({ src, color, icon, style }) {
   const [failed, setFailed] = useState(false);
   const isVideo = src && (src.endsWith('.mp4') || src.endsWith('.webm'));
 
-  const fallback = (
-    <div style={{
-      width: '100%', height: '100%',
-      background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 56, opacity: 0.45,
-    }}>
-      {icon}
-    </div>
-  );
-
-  if (failed || !src) return <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>{fallback}</div>;
+  if (failed || !src) {
+    return (
+      <div style={{ width: '100%', height: '100%', ...style,
+        background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, opacity: 0.45,
+      }}>{icon}</div>
+    );
+  }
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
       {isVideo ? (
         <video
-          src={src}
-          autoPlay
-          loop
-          muted
-          playsInline
+          src={src} autoPlay loop muted playsInline
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           onError={() => setFailed(true)}
         />
@@ -99,31 +90,6 @@ function CoverMedia({ src, color, icon, style }) {
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           onError={() => setFailed(true)}
         />
-      )}
-    </div>
-  );
-}
-
-// ─── Thumbnail placeholder (image only, for sub-tools) ───
-function PlaceholderImage({ src, color, icon, style }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
-      {!failed && src ? (
-        <img
-          src={src} alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div style={{
-          width: '100%', height: '100%',
-          background: `linear-gradient(145deg, ${color}18 0%, ${color}06 50%, #080810 100%)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, opacity: 0.45,
-        }}>
-          {icon}
-        </div>
       )}
     </div>
   );
@@ -140,33 +106,21 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
       {/* ── Hero ── */}
       <div style={{ textAlign: 'center', padding: '36px 16px 28px' }}>
         <h1 style={{
-          fontSize: 'clamp(32px, 5vw, 52px)',
-          fontWeight: 800,
-          color: '#f0f0f5',
-          lineHeight: 1.12,
-          letterSpacing: '-0.03em',
-          margin: 0,
-          fontFamily: "'Outfit', sans-serif",
+          fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 800, color: '#f0f0f5',
+          lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, fontFamily: "'Outfit', sans-serif",
         }}>
           What would you like<br />
           to <span style={{ color: '#22d47b' }}>create</span> today?
         </h1>
-        <p style={{
-          color: '#555', fontSize: 15, marginTop: 10, fontWeight: 400,
-          letterSpacing: '0.01em', margin: '10px 0 0',
-        }}>
+        <p style={{ color: '#555', fontSize: 15, margin: '10px 0 0', fontWeight: 400, letterSpacing: '0.01em' }}>
           Unrestricted AI generation — images, videos, audio & more
         </p>
       </div>
 
       {/* ── Category Cards — full width, 5 equal columns ── */}
       <div style={{
-        display: 'flex',
-        gap: 10,
-        padding: '0 12px',
-        marginBottom: 36,
-        width: '100%',
-        boxSizing: 'border-box',
+        display: 'flex', gap: 10, padding: '0 12px', marginBottom: 36,
+        width: '100%', boxSizing: 'border-box',
       }}>
         {CATEGORIES.map(cat => {
           const isHovered = hoveredCard === cat.id;
@@ -177,59 +131,35 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
               onMouseEnter={() => setHoveredCard(cat.id)}
               onMouseLeave={() => setHoveredCard(null)}
               style={{
-                flex: '1 1 0',
-                minWidth: 0,
-                position: 'relative',
-                borderRadius: 16,
-                overflow: 'hidden',
-                cursor: 'pointer',
+                flex: '1 1 0', minWidth: 0, position: 'relative', borderRadius: 16,
+                overflow: 'hidden', cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
                 border: `1.5px solid ${isHovered ? cat.color + '50' : 'rgba(255,255,255,0.06)'}`,
-                boxShadow: isHovered
-                  ? `0 16px 48px ${cat.color}25, inset 0 -1px 0 ${cat.color}30`
-                  : '0 2px 8px rgba(0,0,0,0.3)',
-                background: '#0c0e13',
-                aspectRatio: '3 / 4',
+                boxShadow: isHovered ? `0 16px 48px ${cat.color}25, inset 0 -1px 0 ${cat.color}30` : '0 2px 8px rgba(0,0,0,0.3)',
+                background: '#0c0e13', aspectRatio: '3 / 4',
               }}
             >
-              {/* Full-card cover (image or video) */}
               <div style={{ position: 'absolute', inset: 0 }}>
                 <CoverMedia src={cat.cover} color={cat.color} icon={cat.icon} />
               </div>
-
-              {/* Bottom gradient overlay with text */}
               <div style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
                 background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.65) 50%, transparent 100%)',
-                padding: '60px 14px 16px',
-                display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                padding: '60px 14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
               }}>
                 <div style={{
-                  fontSize: 'clamp(15px, 1.4vw, 20px)',
-                  fontWeight: 700,
-                  color: '#fff',
-                  marginBottom: 4,
-                  fontFamily: "'Outfit', sans-serif",
-                  textAlign: 'center',
+                  fontSize: 'clamp(15px, 1.4vw, 20px)', fontWeight: 700, color: '#fff', marginBottom: 4,
+                  fontFamily: "'Outfit', sans-serif", textAlign: 'center',
                   background: isHovered ? `linear-gradient(135deg, ${cat.color}, #fff)` : 'none',
                   WebkitBackgroundClip: isHovered ? 'text' : 'unset',
                   WebkitTextFillColor: isHovered ? 'transparent' : '#fff',
                   transition: 'all 0.3s ease',
-                }}>
-                  {cat.label}
-                </div>
-                <div style={{
-                  fontSize: 'clamp(10px, 0.9vw, 13px)',
-                  color: '#999',
-                  lineHeight: 1.35,
-                  textAlign: 'center',
-                }}>
+                }}>{cat.label}</div>
+                <div style={{ fontSize: 'clamp(10px, 0.9vw, 13px)', color: '#999', lineHeight: 1.35, textAlign: 'center' }}>
                   {cat.desc}
                 </div>
               </div>
-
-              {/* Hover glow at bottom edge */}
               {isHovered && (
                 <div style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
@@ -242,20 +172,13 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
         })}
       </div>
 
-      {/* ── NEXUS AI Suite (sub-tools grid) ── */}
+      {/* ── NEXUS AI Suite (sub-tools grid with video thumbnails) ── */}
       <div style={{ padding: '0 16px', marginBottom: 40 }}>
-        <h2 style={{
-          fontSize: 22, fontWeight: 700, color: '#f0f0f5', margin: '0 0 16px',
-          fontFamily: "'Outfit', sans-serif",
-        }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f0f0f5', margin: '0 0 16px', fontFamily: "'Outfit', sans-serif" }}>
           NEXUS AI Suite
         </h2>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {CATEGORIES.flatMap(cat =>
             cat.subTools.map(tool => {
               const isHovered = hoveredSuite === tool.id;
@@ -266,42 +189,26 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
                   onMouseEnter={() => setHoveredSuite(tool.id)}
                   onMouseLeave={() => setHoveredSuite(null)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '10px 12px',
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
                     background: isHovered ? `rgba(${hexToRgb(cat.color)}, 0.05)` : 'rgba(255,255,255,0.02)',
                     border: `1px solid ${isHovered ? cat.color + '35' : 'rgba(255,255,255,0.06)'}`,
-                    borderRadius: 14,
-                    cursor: 'pointer',
-                    transition: 'all 0.25s ease',
+                    borderRadius: 14, cursor: 'pointer', transition: 'all 0.25s ease',
                   }}
                 >
-                  {/* Thumbnail */}
                   <div style={{
-                    width: 72, height: 72, borderRadius: 12, overflow: 'hidden',
-                    flexShrink: 0, background: '#0a0a12',
+                    width: 72, height: 72, borderRadius: 12, overflow: 'hidden', flexShrink: 0,
+                    background: '#0a0a12',
                     border: `1px solid ${isHovered ? cat.color + '20' : 'rgba(255,255,255,0.04)'}`,
                     transition: 'border-color 0.25s ease',
                   }}>
-                    <PlaceholderImage src={tool.image} color={cat.color} icon={cat.icon} />
+                    <CoverMedia src={tool.media} color={cat.color} icon={cat.icon} />
                   </div>
-                  {/* Text */}
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
-                      fontSize: 14, fontWeight: 600,
-                      color: isHovered ? cat.color : '#ddd',
-                      marginBottom: 2,
-                      transition: 'color 0.2s ease',
-                      fontFamily: "'Outfit', sans-serif",
-                    }}>
-                      {tool.label}
-                    </div>
-                    <div style={{
-                      fontSize: 12, color: '#666', lineHeight: 1.3,
-                      overflow: 'hidden', textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
+                      fontSize: 14, fontWeight: 600, color: isHovered ? cat.color : '#ddd',
+                      marginBottom: 2, transition: 'color 0.2s ease', fontFamily: "'Outfit', sans-serif",
+                    }}>{tool.label}</div>
+                    <div style={{ fontSize: 12, color: '#666', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {tool.desc}
                     </div>
                   </div>
@@ -315,7 +222,6 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
   );
 }
 
-// hex color → "r, g, b" for rgba()
 function hexToRgb(hex) {
   const h = hex.replace('#', '');
   return [parseInt(h.substring(0,2),16), parseInt(h.substring(2,4),16), parseInt(h.substring(4,6),16)].join(', ');
