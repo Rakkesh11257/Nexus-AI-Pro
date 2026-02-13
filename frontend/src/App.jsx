@@ -111,15 +111,104 @@ const TEXT_MODELS = [
 const NexusLogo = ({ size = 48 }) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
     <defs>
-      <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#667eea" /><stop offset="100%" stopColor="#764ba2" /></linearGradient>
-      <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#a78bfa" /><stop offset="100%" stopColor="#ec4899" /></linearGradient>
+      <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#22d47b" /><stop offset="100%" stopColor="#0a8f4f" /></linearGradient>
+      <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#22d47b" /><stop offset="100%" stopColor="#4fffb0" /></linearGradient>
     </defs>
     <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#lg1)" />
-    <rect x="12" y="12" width="96" height="96" rx="22" fill="#0d0d1a" />
+    <rect x="12" y="12" width="96" height="96" rx="22" fill="#060608" />
     <path d="M38 78V42l22 36h0l22-36v36" stroke="url(#lg2)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     <circle cx="60" cy="55" r="6" fill="url(#lg2)" opacity="0.8" />
   </svg>
 );
+
+// ─── Star Field Background (3D Space Travel) ───
+function StarField() {
+  const canvasRef = React.useRef(null);
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, cx, cy, animId;
+    const STAR_COUNT = 180, TRAVEL_SPEED = 0.3;
+    const stars = [];
+    const galaxies = [];
+    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W / 2; cy = H / 2; };
+    const seed = (s) => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
+    const makeStar = (scattered) => {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 0.15 + Math.random() * 0.85;
+      return { ox: Math.cos(angle) * dist * (W || 800), oy: Math.sin(angle) * dist * (H || 600), z: scattered ? 50 + Math.random() * 750 : 600 + Math.random() * 200, twinkle: Math.random() * Math.PI * 2, size: 0.4 + Math.random() * 1.2 };
+    };
+    const makeGalaxy = (side, depth) => {
+      const xOff = side === 'left' ? -(0.2 + Math.random() * 0.3) * (W || 800) : (0.2 + Math.random() * 0.3) * (W || 800);
+      return { ox: xOff, oy: (Math.random() - 0.5) * (H || 600) * 0.5, z: depth, rotation: Math.random() * Math.PI * 2, arms: 3 + Math.floor(Math.random() * 2), colorBase: Math.random(), id: Math.random() * 9999 };
+    };
+    const project = (ox, oy, z) => { const s = 400 / Math.max(z, 1); return { x: cx + ox * s, y: cy + oy * s, s }; };
+    const drawGalaxy3D = (g, px, py, scale, alpha) => {
+      if (alpha < 0.02) return;
+      const sz = Math.min(scale * 80, 200);
+      // Core glow
+      const coreG = ctx.createRadialGradient(px, py, 0, px, py, sz * 0.3);
+      coreG.addColorStop(0, `rgba(34,212,123,${alpha * 0.5})`);
+      coreG.addColorStop(1, 'transparent');
+      ctx.fillStyle = coreG; ctx.beginPath(); ctx.arc(px, py, sz * 0.3, 0, Math.PI * 2); ctx.fill();
+      // Spiral arms
+      for (let a = 0; a < g.arms; a++) {
+        ctx.beginPath();
+        for (let t = 0; t < 4; t += 0.08) {
+          const angle = g.rotation + (a / g.arms) * Math.PI * 2 + t;
+          const r = t * sz * 0.22;
+          const x = px + Math.cos(angle) * r;
+          const y = py + Math.sin(angle) * r * 0.6;
+          t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(34,212,123,${alpha * 0.2})`;
+        ctx.lineWidth = Math.max(1, scale * 2);
+        ctx.stroke();
+      }
+    };
+    resize();
+    for (let i = 0; i < STAR_COUNT; i++) stars.push(makeStar(true));
+    galaxies.push(makeGalaxy('right', 300), makeGalaxy('left', 650), makeGalaxy('right', 1000));
+    const loop = () => {
+      ctx.clearRect(0, 0, W, H);
+      const centerR = Math.min(W, H) * 0.18;
+      // Stars
+      for (const st of stars) {
+        st.z -= TRAVEL_SPEED;
+        st.twinkle += 0.02;
+        if (st.z < 1) Object.assign(st, makeStar(false));
+        const { x, y, s } = project(st.ox, st.oy, st.z);
+        if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
+        const dx = x - cx, dy = y - cy;
+        const centerFade = Math.min(1, Math.sqrt(dx * dx + dy * dy) / centerR);
+        const depthAlpha = Math.min(1, s * 0.8);
+        const twinkle = 0.6 + 0.4 * Math.sin(st.twinkle);
+        const a = depthAlpha * twinkle * centerFade;
+        if (a < 0.02) continue;
+        const r = Math.max(0.3, st.size * s * 0.5);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#e0e0e8';
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      // Galaxies
+      for (const g of galaxies) {
+        g.z -= TRAVEL_SPEED;
+        g.rotation += 0.0003;
+        if (g.z < -50) Object.assign(g, makeGalaxy(g.ox > 0 ? 'left' : 'right', 800 + Math.random() * 300));
+        const { x, y, s } = project(g.ox, g.oy, g.z);
+        const a = Math.min(1, s * 0.6) * 0.7;
+        drawGalaxy3D(g, x, y, s, a);
+      }
+      animId = requestAnimationFrame(loop);
+    };
+    loop();
+    window.addEventListener('resize', resize);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />;
+}
 
 // ─── Media Components (handle expired URLs + cross-browser) ───
 function MediaImg({ src, alt = '', style = {}, onClick, ...props }) {
@@ -193,39 +282,67 @@ function AuthScreen({ onAuth }) {
   };
 
   const titles = { login: 'Welcome Back', signup: 'Create Account', verify: 'Verify Email', forgot: 'Forgot Password', reset: 'Reset Password' };
-  const subtitles = { login: 'Sign in to your account', signup: 'Start creating with AI', verify: 'Enter the code from your email', forgot: "We'll send a reset code", reset: 'Enter code and new password' };
+  const subtitles = { login: 'Sign in to continue creating', signup: 'Start generating AI content', verify: 'Enter the code from your email', forgot: "We'll send a reset code", reset: 'Enter code and new password' };
   const submitLabels = { login: 'Sign In', signup: 'Create Account', verify: 'Verify', forgot: 'Send Code', reset: 'Reset Password' };
 
+  const AS = {
+    page: { minHeight: '100vh', background: '#060608', color: '#f0f0f5', fontFamily: "'Outfit', system-ui, sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', position: 'relative', zIndex: 1 },
+    card: { width: '100%', maxWidth: 420, padding: '32px 24px', background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 8px 40px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
+    field: { marginBottom: 16 },
+    label: { display: 'block', fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 6, fontWeight: 500, letterSpacing: '0.02em' },
+    input: { width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#f0f0f5', fontSize: 16, boxSizing: 'border-box', outline: 'none', WebkitAppearance: 'none', transition: 'border-color 0.2s', fontFamily: "'Outfit', system-ui, sans-serif" },
+    btn: { width: '100%', padding: '14px', background: '#22d47b', border: 'none', borderRadius: 10, color: '#060608', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', letterSpacing: '0.02em', transition: 'all 0.2s', boxShadow: '0 0 20px rgba(34,212,123,0.25)' },
+    link: { color: '#22d47b', cursor: 'pointer', fontWeight: 600 },
+    eyeIcon: { position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: 16, userSelect: 'none' },
+    errorBox: { padding: '12px 16px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 10, marginBottom: 14, color: '#fca5a5', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    successBox: { padding: '12px 16px', background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.15)', borderRadius: 10, marginBottom: 14, color: '#22d47b', fontSize: 13 },
+  };
+
   return (
-    <div style={S.page}>
-      <div style={{ textAlign: 'center', paddingTop: 40, marginBottom: 8 }}>
-        <NexusLogo size={56} />
-        <h1 style={S.gradientText}>NEXUS AI Pro</h1>
-        <p style={{ color: '#666', fontSize: 13, marginTop: 4 }}>AI Image & Video Generation</p>
-      </div>
-      <form onSubmit={handleSubmit} style={S.card}>
-        <h2 style={{ margin: 0, fontSize: 22, textAlign: 'center' }}>{titles[mode]}</h2>
-        <p style={{ color: '#888', fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 20 }}>{subtitles[mode]}</p>
-        {error && <div style={S.errorBox}><span>⚠ {error}</span><span onClick={() => setError('')} style={{ cursor: 'pointer', opacity: 0.7 }}>✕</span></div>}
-        {message && <div style={S.successBox}>✓ {message}</div>}
-        {mode === 'signup' && <div style={S.field}><label style={S.label}>Full Name</label><input style={S.input} placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} required /></div>}
-        {mode !== 'verify' && <div style={S.field}><label style={S.label}>Email</label><input style={S.input} type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required /></div>}
-        {['login','signup','reset'].includes(mode) && <div style={S.field}><label style={S.label}>{mode === 'reset' ? 'New Password' : 'Password'}</label><div style={{ position: 'relative' }}><input style={S.input} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} /><span onClick={() => setShowPassword(!showPassword)} style={S.eyeIcon}>{showPassword ? '🙈' : '👁'}</span></div></div>}
-        {['signup','reset'].includes(mode) && <div style={S.field}><label style={S.label}>Confirm Password</label><input style={{ ...S.input, borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' : '#333' }} type={showPassword ? 'text' : 'password'} placeholder="Re-enter password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />{confirmPassword && password !== confirmPassword && <span style={{ color: '#ef4444', fontSize: 12 }}>Passwords do not match</span>}</div>}
-        {mode === 'signup' && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8 }}><input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} style={{ marginTop: 3, accentColor: '#667eea', width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }} /><span style={{ fontSize: 12, color: '#888', lineHeight: 1.5 }}>I agree to the <a href="https://nexus-ai-pro.com/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea' }}>Terms & Conditions</a>. I am 18+ and accept full responsibility for all content I generate.</span></div>}
-        {['verify','reset'].includes(mode) && <div style={S.field}><label style={S.label}>Verification Code</label><input style={{ ...S.input, letterSpacing: 4, textAlign: 'center', fontSize: 18, fontWeight: 600 }} placeholder="------" value={code} onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} required maxLength={6} /></div>}
-        <button type="submit" disabled={loading || ((mode === 'signup' || mode === 'reset') && password !== confirmPassword) || (mode === 'signup' && !agreeTerms)} style={{ ...S.btn, opacity: (loading || (mode === 'signup' && !agreeTerms)) ? 0.5 : 1, marginTop: 8 }}>
-          {loading ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block' }} />Please wait...</span> : submitLabels[mode]}
-        </button>
-        {mode === 'verify' && <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: '#888' }}>Didn't get a code? <span onClick={resendCode} style={S.link}>Resend</span></p>}
-        <div style={{ marginTop: 20, textAlign: 'center', fontSize: 14, color: '#888' }}>
-          {mode === 'login' && <>Don't have an account? <span onClick={() => switchMode('signup')} style={S.link}>Sign Up</span><br /><span onClick={() => switchMode('forgot')} style={{ ...S.link, fontSize: 13, marginTop: 8, display: 'inline-block' }}>Forgot password?</span></>}
-          {mode === 'signup' && <>Already have an account? <span onClick={() => switchMode('login')} style={S.link}>Sign In</span></>}
-          {['verify','forgot','reset'].includes(mode) && <span onClick={() => switchMode('login')} style={S.link}>← Back to Sign In</span>}
+    <>
+      <StarField />
+      <div style={AS.page}>
+        {/* Logo + Brand */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <NexusLogo size={56} />
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 12, letterSpacing: '-0.03em' }}>
+            <span style={{ color: '#22d47b' }}>N</span><span style={{ color: '#f0f0f5' }}>EXUS AI Pro</span>
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, marginTop: 4, letterSpacing: '0.04em', fontWeight: 400 }}>AI Image & Video Generation Platform</p>
         </div>
-      </form>
-      <p style={{ textAlign: 'center', color: '#444', fontSize: 12, marginTop: 24 }}>© 2026 NEXUS AI Pro</p>
-    </div>
+
+        {/* Auth Card */}
+        <form onSubmit={handleSubmit} style={AS.card}>
+          <h2 style={{ margin: 0, fontSize: 22, textAlign: 'center', fontWeight: 700, letterSpacing: '-0.02em' }}>{titles[mode]}</h2>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, textAlign: 'center', marginTop: 6, marginBottom: 24 }}>{subtitles[mode]}</p>
+
+          {error && <div style={AS.errorBox}><span>⚠ {error}</span><span onClick={() => setError('')} style={{ cursor: 'pointer', opacity: 0.7 }}>✕</span></div>}
+          {message && <div style={AS.successBox}>✓ {message}</div>}
+
+          {mode === 'signup' && <div style={AS.field}><label style={AS.label}>Full Name</label><input style={AS.input} placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} required /></div>}
+          {mode !== 'verify' && <div style={AS.field}><label style={AS.label}>Email</label><input style={AS.input} type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required /></div>}
+          {['login','signup','reset'].includes(mode) && <div style={AS.field}><label style={AS.label}>{mode === 'reset' ? 'New Password' : 'Password'}</label><div style={{ position: 'relative' }}><input style={AS.input} type={showPassword ? 'text' : 'password'} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} /><span onClick={() => setShowPassword(!showPassword)} style={AS.eyeIcon}>{showPassword ? '🙈' : '👁'}</span></div></div>}
+          {['signup','reset'].includes(mode) && <div style={AS.field}><label style={AS.label}>Confirm Password</label><input style={{ ...AS.input, borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' : 'rgba(255,255,255,0.08)' }} type={showPassword ? 'text' : 'password'} placeholder="Re-enter password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />{confirmPassword && password !== confirmPassword && <span style={{ color: '#ef4444', fontSize: 12 }}>Passwords do not match</span>}</div>}
+          {mode === 'signup' && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8 }}><input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)} style={{ marginTop: 3, accentColor: '#22d47b', width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }} /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>I agree to the <a href="https://nexus-ai-pro.com/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b' }}>Terms & Conditions</a>. I am 18+ and accept full responsibility for all content I generate.</span></div>}
+          {['verify','reset'].includes(mode) && <div style={AS.field}><label style={AS.label}>Verification Code</label><input style={{ ...AS.input, letterSpacing: 6, textAlign: 'center', fontSize: 20, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }} placeholder="------" value={code} onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} required maxLength={6} /></div>}
+
+          <button type="submit" disabled={loading || ((mode === 'signup' || mode === 'reset') && password !== confirmPassword) || (mode === 'signup' && !agreeTerms)} style={{ ...AS.btn, opacity: (loading || (mode === 'signup' && !agreeTerms)) ? 0.5 : 1, marginTop: 8 }}>
+            {loading ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><span className="animate-spin" style={{ width: 16, height: 16, border: '2px solid rgba(6,6,8,0.3)', borderTopColor: '#060608', borderRadius: '50%', display: 'inline-block' }} />Please wait...</span> : submitLabels[mode]}
+          </button>
+
+          {mode === 'verify' && <p style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Didn't get a code? <span onClick={resendCode} style={AS.link}>Resend</span></p>}
+
+          <div style={{ marginTop: 24, textAlign: 'center', fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+            {mode === 'login' && <>Don't have an account? <span onClick={() => switchMode('signup')} style={AS.link}>Sign Up</span><br /><span onClick={() => switchMode('forgot')} style={{ ...AS.link, fontSize: 13, marginTop: 10, display: 'inline-block', opacity: 0.7 }}>Forgot password?</span></>}
+            {mode === 'signup' && <>Already have an account? <span onClick={() => switchMode('login')} style={AS.link}>Sign In</span></>}
+            {['verify','forgot','reset'].includes(mode) && <span onClick={() => switchMode('login')} style={AS.link}>← Back to Sign In</span>}
+          </div>
+        </form>
+
+        {/* Footer */}
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.15)', fontSize: 12, marginTop: 32 }}>© 2026 NEXUS AI Pro · Powered by Replicate</p>
+      </div>
+    </>
   );
 }
 
@@ -1570,7 +1687,7 @@ function App() {
   });
 
   // ─── Render ───
-  if (authState === 'loading') return <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid #333', borderTopColor: '#667eea', borderRadius: '50%' }} /></div>;
+  if (authState === 'loading') return (<><StarField /><div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}><div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#22d47b', borderRadius: '50%' }} /></div></>);
   if (authState === 'auth') return <AuthScreen onAuth={handleAuth} />;
 
   const curImgModel = IMAGE_MODELS.find(m => m.id === model);
@@ -1581,7 +1698,7 @@ function App() {
       <header style={S.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <NexusLogo size={32} />
-          <span style={{ fontSize: 16, fontWeight: 700, background: 'linear-gradient(135deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>NEXUS AI Pro</span>
+          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em' }}><span style={{ color: '#22d47b' }}>N</span><span style={{ color: '#f0f0f5' }}>EXUS AI Pro</span></span>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           {user?.isPaid ? <span style={{ fontSize: 10, color: '#4ade80', background: 'rgba(74,222,128,0.1)', padding: '3px 8px', borderRadius: 20, border: '1px solid rgba(74,222,128,0.2)' }}>✓ Pro</span>
@@ -2422,19 +2539,19 @@ function App() {
 const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
 const S = {
-  page: { minHeight: '100vh', background: '#0d0d1a', color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', WebkitTextSizeAdjust: '100%' },
-  gradientText: { fontSize: 26, fontWeight: 700, background: 'linear-gradient(135deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginTop: 12 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid #1f2937', background: 'rgba(13,13,26,0.95)', position: 'sticky', top: 0, zIndex: 50, gap: 8 },
+  page: { minHeight: '100vh', background: '#060608', color: '#f0f0f5', fontFamily: "'Outfit', system-ui, -apple-system, sans-serif", WebkitTextSizeAdjust: '100%' },
+  gradientText: { fontSize: 26, fontWeight: 700, color: '#22d47b', marginTop: 12 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(6,6,8,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 50, gap: 8 },
   container: { maxWidth: 900, margin: '0 auto', padding: '16px 10px' },
   tabs: { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4, paddingRight: 30, WebkitOverflowScrolling: 'touch', msOverflowStyle: 'none', scrollbarWidth: 'none' },
   card: { maxWidth: 420, margin: '16px auto', padding: '24px 18px', background: '#111827', borderRadius: 14, border: '1px solid #1f2937', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', boxSizing: 'border-box' },
   field: { marginBottom: 14 },
   label: { display: 'block', fontSize: 13, color: '#9ca3af', marginBottom: 5, fontWeight: 500 },
-  input: { width: '100%', padding: '11px 14px', background: '#0d0d1a', border: '1px solid #333', borderRadius: 8, color: '#fff', fontSize: 16, boxSizing: 'border-box', outline: 'none', WebkitAppearance: 'none' },
-  select: { padding: '10px 14px', background: '#111827', border: '1px solid #333', borderRadius: 8, color: '#fff', fontSize: 14, cursor: 'pointer', outline: 'none', WebkitAppearance: 'none', maxWidth: '100%', boxSizing: 'border-box' },
-  btn: { width: '100%', padding: '13px', background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
+  input: { width: '100%', padding: '11px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#f0f0f5', fontSize: 16, boxSizing: 'border-box', outline: 'none', WebkitAppearance: 'none', fontFamily: "'Outfit', system-ui, sans-serif" },
+  select: { padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#f0f0f5', fontSize: 14, cursor: 'pointer', outline: 'none', WebkitAppearance: 'none', maxWidth: '100%', boxSizing: 'border-box', fontFamily: "'Outfit', system-ui, sans-serif" },
+  btn: { width: '100%', padding: '13px', background: '#22d47b', border: 'none', borderRadius: 8, color: '#060608', fontSize: 15, fontWeight: 700, cursor: 'pointer', WebkitTapHighlightColor: 'transparent', boxShadow: '0 0 20px rgba(34,212,123,0.2)' },
   btnSm: { padding: '6px 14px', background: '#111827', border: '1px solid #333', borderRadius: 6, color: '#ccc', fontSize: 13, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' },
-  link: { color: '#818cf8', cursor: 'pointer', fontWeight: 500 },
+  link: { color: '#22d47b', cursor: 'pointer', fontWeight: 600 },
   eyeIcon: { position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: 16, userSelect: 'none' },
   errorBox: { padding: '12px 16px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, marginBottom: 14, color: '#fca5a5', fontSize: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   successBox: { padding: '12px 16px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, marginBottom: 14, color: '#86efac', fontSize: 14 },

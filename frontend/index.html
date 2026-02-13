@@ -6,19 +6,23 @@
     <title>NEXUS AI Pro - AI Image & Video Generator</title>
     
     <!-- PWA Meta -->
-    <meta name="theme-color" content="#8b5cf6" />
+    <meta name="theme-color" content="#060608" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="NEXUS AI" />
     <link rel="manifest" href="/manifest.json" />
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <!-- Icons -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <style>
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { margin: 0; padding: 0; overflow-x: hidden; }
-      body { background: #0d0d1a; }
+      body { background: #060608; font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
       input, textarea, select, button { font-family: inherit; }
       /* Hide scrollbar on tabs */
       .tabs-scroll::-webkit-scrollbar { display: none; }
@@ -29,8 +33,8 @@
       .animate-spin { animation: spin 1s linear infinite; }
       /* Mobile-friendly range inputs */
       input[type="range"] { -webkit-appearance: none; height: 6px; background: #333; border-radius: 3px; outline: none; }
-      input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #667eea; cursor: pointer; }
-      input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #667eea; cursor: pointer; border: none; }
+      input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #22d47b; cursor: pointer; }
+      input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #22d47b; cursor: pointer; border: none; }
       /* Prevent iOS zoom on input focus */
       @media screen and (max-width: 640px) {
         input, textarea, select { font-size: 16px !important; }
