@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import HomeScreen from './screens/HomeScreen.jsx';
 
 const API_BASE = window.location.origin;
 
@@ -571,8 +572,14 @@ function App() {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState('');
 
-  // Tab
+  // Tab & Category
   const [tab, setTab] = useState('image');
+  const [screen, setScreen] = useState('home'); // 'home' or a tab id
+  const [category, setCategory] = useState(null); // null=home, 'image','video','audio','chat','train'
+
+  // Navigation helpers
+  const navigateToTool = (tabId) => { setTab(tabId); setScreen(tabId); };
+  const navigateHome = () => { setScreen('home'); };
 
   // Image
   const [prompt, setPrompt] = useState('');
@@ -1696,7 +1703,7 @@ function App() {
     <div style={S.page}>
       {/* Header */}
       <header style={S.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={navigateHome}>
           <NexusLogo size={32} />
           <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em' }}><span style={{ color: '#22d47b' }}>N</span><span style={{ color: '#f0f0f5' }}>EXUS AI Pro</span></span>
         </div>
@@ -1709,18 +1716,35 @@ function App() {
       </header>
 
       <div style={S.container}>
-        {/* Tabs */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
-          <div style={S.tabs} className="hide-scrollbar">
-            {[{id:'image',icon:'🎨',label:'Txt2Img'},{id:'i2i',icon:'🔄',label:'Img2Img'},{id:'i2v',icon:'🖼️',label:'Img2Vid'},{id:'t2v',icon:'🎬',label:'Txt2Vid'},{id:'motion',icon:'🎭',label:'Motion'},{id:'audio',icon:'🔊',label:'Audio'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'Chat'},{id:'train',icon:'🧪',label:'Train'},{id:'history',icon:'📂',label:'History'}].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '7px 10px', background: tab === t.id ? 'rgba(102,126,234,0.15)' : 'none', border: tab === t.id ? '1px solid rgba(102,126,234,0.3)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#fff' : '#888', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
-                {t.icon} {t.label}
-                {jobs.some(j => j.tab === t.id && !j.done) && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#667eea', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
+        {/* Home Screen */}
+        {screen === 'home' && (
+          <HomeScreen
+            onSelectTool={(tabId) => navigateToTool(tabId)}
+            onSelectCategory={(catId) => {
+              // Map category to first sub-tool tab
+              const catMap = { image: 'image', video: 't2v', audio: 'audio', transcribe: 'transcribe', character: 'train' };
+              navigateToTool(catMap[catId] || catId);
+            }}
+          />
+        )}
+
+        {/* Tool Screen — Back button + sub-tab bar */}
+        {screen !== 'home' && (
+          <div>
+            {/* Back + Sub-tabs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <button onClick={navigateHome} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#999', cursor: 'pointer', padding: '7px 10px', fontSize: 14, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                ← Home
               </button>
-            ))}
-          </div>
-          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 40, background: 'linear-gradient(to right, transparent, #0a0a18)', pointerEvents: 'none', borderRadius: '0 8px 8px 0' }} className="scroll-fade" />
-        </div>
+              <div style={{ ...S.tabs, flex: 1 }} className="hide-scrollbar">
+                {[{id:'image',icon:'🎨',label:'Create Image'},{id:'i2i',icon:'🔄',label:'Edit Image'},{id:'i2v',icon:'🖼️',label:'Animate Image'},{id:'t2v',icon:'🎬',label:'Create Video'},{id:'motion',icon:'🎭',label:'Motion Sync'},{id:'audio',icon:'🔊',label:'Audio'},{id:'transcribe',icon:'🎙️',label:'Transcribe'},{id:'chat',icon:'💬',label:'Chat'},{id:'train',icon:'🧪',label:'Train'},{id:'history',icon:'📂',label:'History'}].map(t => (
+                  <button key={t.id} onClick={() => { setTab(t.id); setScreen(t.id); }} style={{ padding: '7px 12px', background: tab === t.id ? 'rgba(34,212,123,0.12)' : 'none', border: tab === t.id ? '1px solid rgba(34,212,123,0.25)' : '1px solid transparent', borderRadius: 8, color: tab === t.id ? '#22d47b' : '#777', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0, position: 'relative' }}>
+                    {t.icon} {t.label}
+                    {jobs.some(j => j.tab === t.id && !j.done) && t.id !== tab && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, borderRadius: '50%', background: '#22d47b', animation: 'spin 1s linear infinite', border: '1.5px solid transparent', borderTopColor: '#fff' }} />}
+                  </button>
+                ))}
+              </div>
+            </div>
 
         {/* Error */}
         {error && <div style={S.errorBox}><span>⚠ {error}</span><span onClick={() => setError('')} style={{ cursor: 'pointer', opacity: 0.7 }}>✕</span></div>}
@@ -2515,6 +2539,8 @@ function App() {
                 ))}
               </div>
             )}
+          </div>
+        )}
           </div>
         )}
       </div>
