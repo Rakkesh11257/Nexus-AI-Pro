@@ -1,7 +1,7 @@
 // ─── Model Configs ───
 
 export const IMAGE_MODELS = [
-  { id: 'prunaai/wan-2.2-image', name: 'Wan 2.2 Image', desc: 'Unrestricted T2I', maxSteps: 50, nsfw: true },
+  { id: 'prunaai/wan-2.2-image', name: 'Wan 2.2 Image', desc: 'Wan Text to Image', maxSteps: 50, nsfw: true },
   { id: 'bytedance/sdxl-lightning-4step:6f7a773af6fc3e8de9d5a3c00be77c17308914bf67772726aff83496ba1e3bbe', name: 'SDXL Lightning 4-Step', desc: 'Ultra fast SDXL (~2s)', maxSteps: 10, nsfw: true, useVersion: true },
   { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'Stable Diffusion XL', maxSteps: 50, nsfw: true, useVersion: true },
   { id: 'black-forest-labs/flux-schnell', name: 'FLUX Schnell', desc: 'Fast (~2s)', maxSteps: 4, nsfw: false },
