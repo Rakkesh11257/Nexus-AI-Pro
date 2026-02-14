@@ -377,7 +377,7 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
         description: order.planName,
         prefill: { email: user?.email || '' },
         theme: { color: "#22d47b" },
-        config: { display: { blocks: { upi: { instruments: [{ method: "upi", apps: ["google_pay", "paytm"] }] } }, sequence: ["block.upi"], preferences: { show_default_blocks: true } } },
+        config: { display: { blocks: { upi: { instruments: [{ method: "upi", apps: ["google_pay", "paytm"] }], name: "Pay via UPI" } }, hide: [{ method: "upi", apps: ["phonepe"] }], sequence: ["block.upi"], preferences: { show_default_blocks: true } } },
         modal: { ondismiss: () => setLoading(false) },
       };
 
