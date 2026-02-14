@@ -10,8 +10,8 @@ const CATEGORIES = [
     color: '#22d47b',
     cover: '/samples/image-cover.jpg',
     subTools: [
-      { id: 'create-image', label: 'Create Image', desc: 'Generate images from text prompts', media: '/samples/create-image.mp4', tab: 'image' },
-      { id: 'edit-image', label: 'Edit Image', desc: 'Transform images with AI', media: '/samples/edit-image.mp4', tab: 'i2i' },
+      { id: 'create-image', label: 'Create Image', desc: 'Generate images from text prompts', media: '/samples/create-image.gif', tab: 'image' },
+      { id: 'edit-image', label: 'Edit Image', desc: 'Transform images with AI', media: '/samples/edit-image.gif', tab: 'i2i' },
     ],
   },
   {
@@ -20,11 +20,11 @@ const CATEGORIES = [
     desc: 'Turn prompts and visuals into clips.',
     icon: '🎬',
     color: '#a855f7',
-    cover: '/samples/video-cover.mp4',
+    cover: '/samples/video-cover.gif',
     subTools: [
-      { id: 'create-video', label: 'Create Video', desc: 'Generate videos from text', media: '/samples/create-video.mp4', tab: 't2v' },
-      { id: 'animate-image', label: 'Animate Image', desc: 'Turn images into video', media: '/samples/animate-image.mp4', tab: 'i2v' },
-      { id: 'motion-sync', label: 'Motion Sync', desc: 'Transfer motion between videos', media: '/samples/motion-sync.mp4', tab: 'motion' },
+      { id: 'create-video', label: 'Create Video', desc: 'Generate videos from text', media: '/samples/create-video.gif', tab: 't2v' },
+      { id: 'animate-image', label: 'Animate Image', desc: 'Turn images into video', media: '/samples/animate-image.gif', tab: 'i2v' },
+      { id: 'motion-sync', label: 'Motion Sync', desc: 'Transfer motion between videos', media: '/samples/motion-sync.gif', tab: 'motion' },
     ],
   },
   {
@@ -33,9 +33,9 @@ const CATEGORIES = [
     desc: 'Give your worlds a voice.',
     icon: '🔊',
     color: '#f59e0b',
-    cover: '/samples/audio-cover.mp4',
+    cover: '/samples/audio-cover.gif',
     subTools: [
-      { id: 'music-gen', label: 'Music Generation', desc: 'Create AI music & sound', media: '/samples/music-gen.mp4', tab: 'audio' },
+      { id: 'music-gen', label: 'Music Generation', desc: 'Create AI music & sound', media: '/samples/music-gen.gif', tab: 'audio' },
     ],
   },
   {
@@ -44,9 +44,9 @@ const CATEGORIES = [
     desc: 'Convert speech to text instantly.',
     icon: '🎙️',
     color: '#ef4444',
-    cover: '/samples/transcribe-cover.mp4',
+    cover: '/samples/transcribe-cover.gif',
     subTools: [
-      { id: 'transcribe-audio', label: 'Transcribe Audio', desc: 'Speech to text with AI', media: '/samples/transcribe.mp4', tab: 'transcribe' },
+      { id: 'transcribe-audio', label: 'Transcribe Audio', desc: 'Speech to text with AI', media: '/samples/transcribe.gif', tab: 'transcribe' },
     ],
   },
   {
@@ -55,9 +55,9 @@ const CATEGORIES = [
     desc: 'Train and reuse your cast.',
     icon: '🧪',
     color: '#06b6d4',
-    cover: '/samples/character-cover.mp4',
+    cover: '/samples/character-cover.gif',
     subTools: [
-      { id: 'train-model', label: 'Train Model', desc: 'Create a custom AI model', media: '/samples/train.mp4', tab: 'train' },
+      { id: 'train-model', label: 'Train Model', desc: 'Create a custom AI model', media: '/samples/train.gif', tab: 'train' },
     ],
   },
   {
@@ -66,9 +66,9 @@ const CATEGORIES = [
     desc: 'Chat with the smartest AI models.',
     icon: '💬',
     color: '#8b5cf6',
-    cover: '/samples/chat-cover.mp4',
+    cover: '/samples/chat-cover.gif',
     subTools: [
-      { id: 'ai-chat', label: 'AI Chat', desc: 'GPT-5, Gemini, Claude & more', media: '/samples/ai-chat.mp4', tab: 'chat' },
+      { id: 'ai-chat', label: 'AI Chat', desc: 'GPT-5, Gemini, Claude & more', media: '/samples/ai-chat.gif', tab: 'chat' },
     ],
   },
 ];
@@ -76,7 +76,6 @@ const CATEGORIES = [
 // ─── Media cover: supports image or video, with gradient fallback ───
 function CoverMedia({ src, color, icon, style }) {
   const [failed, setFailed] = useState(false);
-  const isVideo = src && (src.endsWith('.mp4') || src.endsWith('.webm'));
 
   if (failed || !src) {
     return (
@@ -89,19 +88,11 @@ function CoverMedia({ src, color, icon, style }) {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
-      {isVideo ? (
-        <video
-          src={src} autoPlay loop muted playsInline
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <img
-          src={src} alt=""
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          onError={() => setFailed(true)}
-        />
-      )}
+      <img
+        src={src} alt=""
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        onError={() => setFailed(true)}
+      />
     </div>
   );
 }
@@ -137,7 +128,7 @@ export default function HomeScreen({ onSelectTool, onSelectCategory }) {
         </h1>
         {!isMobile && (
           <p style={{ color: '#555', fontSize: 15, margin: '10px 0 0', fontWeight: 400, letterSpacing: '0.01em' }}>
-            Unrestricted AI generation — images, videos, audio & more
+            AI generation — images, videos, audio & more
           </p>
         )}
       </div>
