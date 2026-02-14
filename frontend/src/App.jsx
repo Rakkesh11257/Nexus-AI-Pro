@@ -376,7 +376,7 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
         name: 'NEXUS AI Pro',
         description: order.planName,
         prefill: { email: user?.email || '' },
-        theme: { color: '#667eea' },
+        theme: { color: '#22d47b' },
         modal: { ondismiss: () => setLoading(false) },
       };
 
@@ -442,11 +442,11 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
             {plans.map(plan => (
               <div key={plan.id} onClick={() => setSelectedPlan(plan.id)} style={{
                 flex: 1, padding: '16px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'center', position: 'relative',
-                background: selectedPlan === plan.id ? 'rgba(102,126,234,0.1)' : '#0d0d1a',
-                border: selectedPlan === plan.id ? '2px solid #667eea' : '2px solid #1f2937',
+                background: selectedPlan === plan.id ? 'rgba(34,212,123,0.1)' : '#0d0d1a',
+                border: selectedPlan === plan.id ? '2px solid #22d47b' : '2px solid #1f2937',
                 transition: 'all 0.2s',
               }}>
-                {plan.badge && <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #667eea, #764ba2)', padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{plan.badge}</div>}
+                {plan.badge && <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #22d47b, #0a8f4f)', padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', color: '#060608' }}>{plan.badge}</div>}
                 {plan.originalPrice && <div style={{ fontSize: 14, color: '#666', textDecoration: 'line-through', marginBottom: 2 }}>{plan.originalPrice}</div>}
                 <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{plan.price}</div>
                 <div style={{ fontSize: 13, color: '#888' }}>{plan.desc}</div>
@@ -506,7 +506,7 @@ function SettingsModal({ apiKey, onSave, onClose }) {
         <button onClick={() => onSave(trimmed)} disabled={!valid} style={{ ...S.btn, opacity: valid ? 1 : 0.5, marginBottom: 16 }}>Save Key</button>
 
         <div style={{ borderTop: '1px solid #1f2937', paddingTop: 14 }}>
-          <p onClick={() => setShowSteps(!showSteps)} style={{ fontSize: 13, color: '#667eea', cursor: 'pointer', margin: '0 0 12px', fontWeight: 600 }}>
+          <p onClick={() => setShowSteps(!showSteps)} style={{ fontSize: 13, color: '#22d47b', cursor: 'pointer', margin: '0 0 12px', fontWeight: 600 }}>
             {showSteps ? '▼' : '▶'} {apiKey ? 'How to manage your API key' : 'How to get your API key'}
           </p>
 
@@ -514,17 +514,17 @@ function SettingsModal({ apiKey, onSave, onClose }) {
             <div style={{ fontSize: 12.5, color: '#aaa', lineHeight: 1.8 }}>
               <p style={{ color: '#fff', fontWeight: 600, margin: '0 0 8px' }}>🆕 New to Replicate? Create your key:</p>
               <div style={{ background: '#0a0a18', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                <p style={{ margin: '0 0 4px' }}>1. Go to <a href="https://replicate.com" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com</a> and sign up (free)</p>
-                <p style={{ margin: '0 0 4px' }}>2. Go to <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>Account → API Tokens</a></p>
+                <p style={{ margin: '0 0 4px' }}>1. Go to <a href="https://replicate.com" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b', textDecoration: 'underline' }}>replicate.com</a> and sign up (free)</p>
+                <p style={{ margin: '0 0 4px' }}>2. Go to <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b', textDecoration: 'underline' }}>Account → API Tokens</a></p>
                 <p style={{ margin: '0 0 4px' }}>3. Click <strong style={{ color: '#fff' }}>"Create Token"</strong>, copy the key (starts with <code style={{ background: '#1a1a2e', padding: '1px 5px', borderRadius: 4, color: '#4ade80' }}>r8_</code>)</p>
-                <p style={{ margin: '0 0 4px' }}>4. Go to <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>Account → Billing</a></p>
+                <p style={{ margin: '0 0 4px' }}>4. Go to <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b', textDecoration: 'underline' }}>Account → Billing</a></p>
                 <p style={{ margin: 0 }}>5. Add credits — minimum <strong style={{ color: '#fff' }}>$1</strong> to start (up to $10,000)</p>
               </div>
 
               <p style={{ color: '#fff', fontWeight: 600, margin: '0 0 8px' }}>🔑 Already have a key?</p>
               <div style={{ background: '#0a0a18', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                <p style={{ margin: '0 0 4px' }}>• View your existing keys: <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com/account/api-tokens</a></p>
-                <p style={{ margin: 0 }}>• Check your balance & usage: <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', textDecoration: 'underline' }}>replicate.com/account/billing</a></p>
+                <p style={{ margin: '0 0 4px' }}>• View your existing keys: <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b', textDecoration: 'underline' }}>replicate.com/account/api-tokens</a></p>
+                <p style={{ margin: 0 }}>• Check your balance & usage: <a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer" style={{ color: '#22d47b', textDecoration: 'underline' }}>replicate.com/account/billing</a></p>
               </div>
 
               <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: 10 }}>
@@ -1175,7 +1175,7 @@ function App() {
   // Reusable video options UI renderer
   const renderVideoOpts = (modelCfg, opts, setOpts, negPrompt, setNegPrompt) => {
     const p = modelCfg?.params || {};
-    const btnStyle = (selected) => ({ padding: '6px 12px', background: selected ? 'rgba(102,126,234,0.2)' : '#111827', border: selected ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: selected ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+    const btnStyle = (selected) => ({ padding: '6px 12px', background: selected ? 'rgba(34,212,123,0.2)' : '#111827', border: selected ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: selected ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
     const checkStyle = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
@@ -1751,8 +1751,8 @@ function App() {
 
         {/* Loading Bar */}
         {loading && (
-          <div style={{ padding: '16px 20px', background: 'rgba(102,126,234,0.1)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="animate-spin" style={{ width: 20, height: 20, border: '2px solid #333', borderTopColor: '#667eea', borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ padding: '16px 20px', background: 'rgba(34,212,123,0.1)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="animate-spin" style={{ width: 20, height: 20, border: '2px solid #333', borderTopColor: '#22d47b', borderRadius: '50%', flexShrink: 0 }} />
             <span style={{ color: '#aaa', fontSize: 14 }}>{loadingStatus || 'Generating...'}</span>
           </div>
         )}
@@ -1778,7 +1778,7 @@ function App() {
               </select>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {ASPECTS.map(a => (
-                  <button key={a.id} onClick={() => setAspect(a.id)} style={{ padding: '7px 10px', background: aspect === a.id ? 'rgba(102,126,234,0.2)' : '#111827', border: aspect === a.id ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: aspect === a.id ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 }}>{a.id}</button>
+                  <button key={a.id} onClick={() => setAspect(a.id)} style={{ padding: '7px 10px', background: aspect === a.id ? 'rgba(34,212,123,0.2)' : '#111827', border: aspect === a.id ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: aspect === a.id ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 }}>{a.id}</button>
                 ))}
               </div>
             </div>
@@ -1848,7 +1848,7 @@ function App() {
               </div>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {ASPECTS.map(a => (
-                  <button key={a.id} onClick={() => setAspect(a.id)} style={{ padding: '7px 10px', background: aspect === a.id ? 'rgba(102,126,234,0.2)' : '#111827', border: aspect === a.id ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: aspect === a.id ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 }}>{a.id}</button>
+                  <button key={a.id} onClick={() => setAspect(a.id)} style={{ padding: '7px 10px', background: aspect === a.id ? 'rgba(34,212,123,0.2)' : '#111827', border: aspect === a.id ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: aspect === a.id ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 }}>{a.id}</button>
                 ))}
               </div>
             </div>
@@ -1968,7 +1968,7 @@ function App() {
           const isKling = motionModel.includes('kling');
           const isAnimate = motionModel.includes('animate');
           const curMotion = MOTION_MODELS.find(m => m.id === motionModel);
-          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(34,212,123,0.2)' : '#111827', border: sel ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
           return (
           <div>
@@ -2080,7 +2080,7 @@ function App() {
           const isEL = audioModel.includes('elevenlabs');
           const isLyria = audioModel.includes('lyria');
           const isMM = audioModel.includes('mmaudio');
-          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(34,212,123,0.2)' : '#111827', border: sel ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           return (
           <div>
             <select value={audioModel} onChange={e => { setAudioModel(e.target.value); setAudioOpts({}); setAudioNegPrompt(''); setAudioVideo(null); setAudioImage(null); }} style={{ ...S.select, width: '100%', marginBottom: 12 }}>
@@ -2214,7 +2214,7 @@ function App() {
           const isGPT4o = transcribeModel.includes('gpt-4o');
           const isWhisper = transcribeModel.includes('whisper');
 
-          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(34,212,123,0.2)' : '#111827', border: sel ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
           return (
           <div>
@@ -2296,7 +2296,7 @@ function App() {
         {tab === 'chat' && (() => {
           const curChatModel = TEXT_MODELS.find(m => m.id === chatModel);
           const cp = curChatModel?.params || {};
-          const btnSt = (sel) => ({ padding: '5px 10px', background: sel ? 'rgba(102,126,234,0.2)' : '#111827', border: sel ? '1px solid rgba(102,126,234,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
+          const btnSt = (sel) => ({ padding: '5px 10px', background: sel ? 'rgba(34,212,123,0.2)' : '#111827', border: sel ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           return (
           <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)', minHeight: 400 }}>
             {/* Model selector + settings */}
@@ -2359,10 +2359,10 @@ function App() {
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
                     maxWidth: '85%', padding: '10px 14px', borderRadius: 12,
-                    background: msg.role === 'user' ? 'rgba(102,126,234,0.2)' : '#111827',
-                    border: msg.role === 'user' ? '1px solid rgba(102,126,234,0.3)' : '1px solid #1f2937',
+                    background: msg.role === 'user' ? 'rgba(34,212,123,0.2)' : '#111827',
+                    border: msg.role === 'user' ? '1px solid rgba(34,212,123,0.3)' : '1px solid #1f2937',
                   }}>
-                    {msg.role === 'assistant' && <div style={{ fontSize: 10, color: '#667eea', marginBottom: 4, fontWeight: 600 }}>{TEXT_MODELS.find(m => m.id === msg.model)?.name || 'AI'}</div>}
+                    {msg.role === 'assistant' && <div style={{ fontSize: 10, color: '#22d47b', marginBottom: 4, fontWeight: 600 }}>{TEXT_MODELS.find(m => m.id === msg.model)?.name || 'AI'}</div>}
                     <div style={{ fontSize: 14, color: '#ddd', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</div>
                   </div>
                 </div>
@@ -2370,7 +2370,7 @@ function App() {
               {chatStreaming && (
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                   <div style={{ padding: '10px 14px', borderRadius: 12, background: '#111827', border: '1px solid #1f2937' }}>
-                    <div className="animate-spin" style={{ width: 16, height: 16, border: '2px solid #333', borderTopColor: '#667eea', borderRadius: '50%', display: 'inline-block' }} />
+                    <div className="animate-spin" style={{ width: 16, height: 16, border: '2px solid #333', borderTopColor: '#22d47b', borderRadius: '50%', display: 'inline-block' }} />
                   </div>
                 </div>
               )}
@@ -2410,7 +2410,7 @@ function App() {
         {/* ══ TRAIN TAB ══ */}
         {tab === 'train' && (
           <div>
-            <div style={{ background: 'rgba(102,126,234,0.08)', border: '1px solid rgba(102,126,234,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
+            <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
               🧪 <strong style={{ color: '#fff' }}>Train Your Own LoRA Model</strong> — Upload 10-20 images of a subject (person, style, object), set a trigger word, and train a custom FLUX LoRA model. Training takes ~5-10 minutes using Replicate's fast trainer and costs ~$1-3 on your Replicate account.
             </div>
 
@@ -2466,7 +2466,7 @@ function App() {
               <div style={{ background: '#111827', borderRadius: 10, padding: 16, border: '1px solid #1f2937', marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>Training Status</span>
-                  <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: trainStatus.status === 'succeeded' ? 'rgba(74,222,128,0.15)' : trainStatus.status === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(102,126,234,0.15)', color: trainStatus.status === 'succeeded' ? '#4ade80' : trainStatus.status === 'failed' ? '#ef4444' : '#667eea' }}>
+                  <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: trainStatus.status === 'succeeded' ? 'rgba(74,222,128,0.15)' : trainStatus.status === 'failed' ? 'rgba(239,68,68,0.15)' : 'rgba(34,212,123,0.15)', color: trainStatus.status === 'succeeded' ? '#4ade80' : trainStatus.status === 'failed' ? '#ef4444' : '#22d47b' }}>
                     {trainStatus.status}
                   </span>
                 </div>
@@ -2474,7 +2474,7 @@ function App() {
                 {trainStatus.status === 'succeeded' && (
                   <div style={{ marginTop: 8, padding: 10, background: 'rgba(74,222,128,0.08)', borderRadius: 8, border: '1px solid rgba(74,222,128,0.2)' }}>
                     <p style={{ fontSize: 13, color: '#4ade80', margin: 0 }}>✅ Training complete! Your model <strong>{trainStatus.destination}</strong> is ready.</p>
-                    <p style={{ fontSize: 12, color: '#888', margin: '6px 0 0' }}>Go to <strong style={{ color: '#667eea', cursor: 'pointer' }} onClick={() => setTab('image')}>Text to Image</strong> tab → select your model from the dropdown → use trigger word <strong style={{ color: '#fff' }}>"{trainTrigger}"</strong> in your prompt.</p>
+                    <p style={{ fontSize: 12, color: '#888', margin: '6px 0 0' }}>Go to <strong style={{ color: '#22d47b', cursor: 'pointer' }} onClick={() => setTab('image')}>Text to Image</strong> tab → select your model from the dropdown → use trigger word <strong style={{ color: '#fff' }}>"{trainTrigger}"</strong> in your prompt.</p>
                     <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Example: "{trainTrigger} as an astronaut on Mars, cinematic lighting"</p>
                   </div>
                 )}
@@ -2489,7 +2489,7 @@ function App() {
                   <div key={i} style={{ background: '#111827', borderRadius: 8, padding: 12, border: '1px solid #1f2937', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <p style={{ fontSize: 13, color: '#fff', margin: 0, fontWeight: 600 }}>{m.name}</p>
-                      <p style={{ fontSize: 11, color: '#888', margin: '4px 0 0' }}>Trigger: <strong style={{ color: '#667eea' }}>{m.trigger}</strong> · {new Date(m.trainedAt).toLocaleDateString()}</p>
+                      <p style={{ fontSize: 11, color: '#888', margin: '4px 0 0' }}>Trigger: <strong style={{ color: '#22d47b' }}>{m.trigger}</strong> · {new Date(m.trainedAt).toLocaleDateString()}</p>
                     </div>
                     <button onClick={() => { fetch(`${API_BASE}/api/trained-models/${encodeURIComponent(m.name)}`, { method: 'DELETE', headers: { 'x-auth-token': accessToken } }).then(r => r.json()).then(d => { if (d.models) setTrainHistory(d.models); }).catch(() => {}); setTrainHistory(prev => prev.filter((_, j) => j !== i)); }} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}>🗑</button>
                   </div>
