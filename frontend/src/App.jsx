@@ -1527,8 +1527,9 @@ function App() {
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
       const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
-      const item = { url, prompt: audioPrompt.trim(), model: audioModel, ts: Date.now() };
+      const item = { url, prompt: audioPrompt.trim(), model: audioModel, ts: Date.now(), type: 'audio' };
       setAudioResults(prev => [item, ...prev]);
+      setResults(prev => [item, ...prev]);
       finishJob(jobId);
     } catch (err) { setError(err.message); finishJob(jobId, err.message); }
   };
@@ -1945,16 +1946,7 @@ function App() {
               🔄 Generate Image to Image
             </button>
 
-            {results.filter(r => r.type === 'image').length > 0 && (
-              <div style={S.grid}>
-                {results.filter(r => r.type === 'image').map((item, i) => (
-                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
-                    <MediaImg src={item.url} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block', minHeight: 120 }} />
-                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
-                  </div>
-                ))}
-              </div>
-            )}
+
           </div>
         )}
 
@@ -2004,16 +1996,7 @@ function App() {
               🖼️ Generate Image to Video
             </button>
 
-            {results.filter(r => r.type === 'video').length > 0 && (
-              <div style={S.grid}>
-                {results.filter(r => r.type === 'video').map((item, i) => (
-                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
-                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
-                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
-                  </div>
-                ))}
-              </div>
-            )}
+
           </div>
         )}
 
@@ -2030,16 +2013,7 @@ function App() {
               🎬 Generate Text to Video
             </button>
 
-            {results.filter(r => r.type === 'video').length > 0 && (
-              <div style={S.grid}>
-                {results.filter(r => r.type === 'video').map((item, i) => (
-                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
-                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
-                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
-                  </div>
-                ))}
-              </div>
-            )}
+
           </div>
         )}
 
@@ -2137,16 +2111,7 @@ function App() {
               🎭 Generate Motion Control
             </button>
 
-            {results.filter(r => r.type === 'video').length > 0 && (
-              <div style={S.grid}>
-                {results.filter(r => r.type === 'video').map((item, i) => (
-                  <div key={i} style={S.gridCard} onClick={() => setViewerItem(item)}>
-                    <MediaVid src={item.url} onMouseEnter={e => e.target?.play?.()} onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}} style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block', minHeight: 100 }} onClick={() => setViewerItem(item)} />
-                    <div style={{ padding: '8px 10px' }}><p style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{item.prompt}</p></div>
-                  </div>
-                ))}
-              </div>
-            )}
+
           </div>
           );
         })()}
@@ -2267,20 +2232,7 @@ function App() {
               🔊 Generate Audio
             </button>
 
-            {/* Audio results */}
-            {audioResults.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-                {audioResults.map((item, i) => (
-                  <div key={i} style={{ background: '#111827', borderRadius: 10, padding: 12, border: '1px solid #1f2937' }}>
-                    <audio src={item.url} controls style={{ width: '100%', marginBottom: 6 }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ fontSize: 12, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>{item.prompt}</p>
-                      <a href={item.url} download target="_blank" rel="noopener noreferrer" style={{ ...S.btnSm, textDecoration: 'none', fontSize: 11 }}>⬇ Download</a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+
           </div>
           );
         })()}
