@@ -648,10 +648,10 @@ function App() {
   const [accessToken, setAccessToken] = useState('');
 
   // Tab & Category (persist across refresh)
-  const [tab, setTabRaw] = useState(() => sessionStorage.getItem('nexus_tab') || 'image');
-  const [screen, setScreenRaw] = useState(() => sessionStorage.getItem('nexus_screen') || 'home');
-  const setTab = (v) => { setTabRaw(v); sessionStorage.setItem('nexus_tab', v); };
-  const setScreen = (v) => { setScreenRaw(v); sessionStorage.setItem('nexus_screen', v); };
+  const [tab, setTabRaw] = useState(() => localStorage.getItem('nexus_tab') || 'image');
+  const [screen, setScreenRaw] = useState(() => localStorage.getItem('nexus_screen') || 'home');
+  const setTab = (v) => { setTabRaw(v); try { localStorage.setItem('nexus_tab', v); } catch {} };
+  const setScreen = (v) => { setScreenRaw(v); try { localStorage.setItem('nexus_screen', v); } catch {} };
   const [category, setCategory] = useState(null); // null=home, 'image','video','audio','chat','train'
 
   // Navigation helpers
@@ -784,7 +784,7 @@ function App() {
           .then(data => { localStorage.setItem('accessToken', data.accessToken); setAccessToken(data.accessToken); return fetch(`${API_BASE}/auth/me`, { headers: { 'x-auth-token': data.accessToken } }); })
           .then(r => r.ok ? r.json() : Promise.reject())
           .then(data => { setUser(data); setAuthState('app'); })
-          .catch(() => { localStorage.clear(); setAuthState('auth'); });
+          .catch(() => { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); setAuthState('auth'); });
       });
   }, []);
 
