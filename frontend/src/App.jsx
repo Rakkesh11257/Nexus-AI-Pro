@@ -679,9 +679,10 @@ function App() {
   const setTab = (v) => { setTabRaw(v); try { localStorage.setItem('nexus_tab', v); } catch {} };
   const setScreen = (v) => { setScreenRaw(v); try { localStorage.setItem('nexus_screen', v); } catch {} };
   const [category, setCategory] = useState(null); // null=home, 'image','video','audio','chat','train'
+  const [currentCategory, setCurrentCategory] = useState(null); // tracks which category context the current tool was opened from
 
   // Navigation helpers
-  const navigateToTool = (tabId) => { setTab(tabId); setScreen(tabId); };
+  const navigateToTool = (tabId, catId) => { setTab(tabId); setScreen(tabId); if (catId) setCurrentCategory(catId); };
   const navigateToCategory = (catId) => { setScreen('category:' + catId); };
   const navigateHome = () => { setScreen('home'); };
 
@@ -2187,7 +2188,7 @@ function App() {
         {screen.startsWith('category:') && (
           <CategoryScreen
             categoryId={screen.replace('category:', '')}
-            onSelectTool={(tabId) => navigateToTool(tabId)}
+            onSelectTool={(tabId, catId) => navigateToTool(tabId, catId)}
             onBack={navigateHome}
           />
         )}
@@ -2196,9 +2197,12 @@ function App() {
         {screen !== 'home' && !screen.startsWith('category:') && (
           <ToolScreen
             tabId={tab}
+            categoryId={currentCategory}
             onBack={() => {
-              const categoryToolTabs = { image: 'image', i2i: 'image', faceswap: 'image', upscale: 'image', skin: 'image', i2v: 'image', t2v: 'video', v2v: 'video', motion: 'video', videofs: 'video', audio: 'audio', transcribe: 'transcribe', train: 'character', chat: 'chat' };
-              const catId = categoryToolTabs[tab];
+              // Use currentCategory if available (set when navigating from a category screen)
+              // Fall back to the hardcoded map for tools that only belong to one category
+              const fallbackMap = { image: 'image', i2i: 'image', faceswap: 'image', upscale: 'image', skin: 'image', i2v: 'image', t2v: 'video', v2v: 'video', motion: 'video', videofs: 'video', audio: 'audio', transcribe: 'transcribe', train: 'character', chat: 'chat' };
+              const catId = currentCategory || fallbackMap[tab];
               if (catId) { setScreen('category:' + catId); } else { navigateHome(); }
             }}
             onSwitchTool={(newTab) => { setTab(newTab); setScreen(newTab); }}

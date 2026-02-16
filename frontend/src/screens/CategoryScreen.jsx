@@ -206,6 +206,8 @@ function HistoryPanel({ categoryId, color, isMobile }) {
 
 // ─── Main Category Screen ───
 export default function CategoryScreen({ categoryId, onSelectTool, onBack, generationHistory }) {
+  // Wrap onSelectTool to include categoryId so parent knows which category the tool came from
+  const handleSelectTool = (tabId) => onSelectTool(tabId, categoryId);
   const isMobile = useIsMobile();
   const category = CATEGORY_TOOLS[categoryId];
 
@@ -250,7 +252,7 @@ export default function CategoryScreen({ categoryId, onSelectTool, onBack, gener
             marginBottom: 24,
           }}>
             {tools.map(tool => (
-              <ToolCard key={tool.id} tool={tool} color={color} onSelect={onSelectTool} isMobile={isMobile} />
+              <ToolCard key={tool.id} tool={tool} color={color} onSelect={handleSelectTool} isMobile={isMobile} />
             ))}
           </div>
 
@@ -305,7 +307,7 @@ export default function CategoryScreen({ categoryId, onSelectTool, onBack, gener
               gap: 12,
             }}>
               {tools.map(tool => (
-                <ToolCard key={tool.id} tool={tool} color={color} onSelect={onSelectTool} isMobile={isMobile} />
+                <ToolCard key={tool.id} tool={tool} color={color} onSelect={handleSelectTool} isMobile={isMobile} />
               ))}
             </div>
           </div>

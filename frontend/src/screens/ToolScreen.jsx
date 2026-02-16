@@ -13,20 +13,30 @@ function useIsMobile(breakpoint = 768) {
 }
 
 // Map tab IDs back to their category and tool info
-function getToolInfo(tabId) {
+// preferCategoryId: when a tab exists in multiple categories (e.g. i2v in both image & video),
+// prefer the one matching this category so the user stays in the correct context.
+function getToolInfo(tabId, preferCategoryId) {
+  let fallback = null;
   for (const [catId, cat] of Object.entries(CATEGORY_TOOLS)) {
     for (const tool of cat.tools) {
       if (tool.tab === tabId) {
-        return { category: cat, categoryId: catId, tool };
+        // If this matches the preferred category, return immediately
+        if (preferCategoryId && catId === preferCategoryId) {
+          return { category: cat, categoryId: catId, tool };
+        }
+        // Otherwise store as fallback (first match)
+        if (!fallback) {
+          fallback = { category: cat, categoryId: catId, tool };
+        }
       }
     }
   }
-  return null;
+  return fallback;
 }
 
 // Get sibling tools in same category
-function getSiblingTools(tabId) {
-  const info = getToolInfo(tabId);
+function getSiblingTools(tabId, preferCategoryId) {
+  const info = getToolInfo(tabId, preferCategoryId);
   if (!info) return [];
   return info.category.tools.filter(t => !t.comingSoon && t.tab);
 }
@@ -233,6 +243,7 @@ function ToolCard({ tool, isActive, onClick, isMobile }) {
 // ─── Tool Screen Layout ───
 export default function ToolScreen({
   tabId,
+  categoryId,
   onBack,
   onSwitchTool,
   results,
@@ -242,8 +253,8 @@ export default function ToolScreen({
   children,
 }) {
   const isMobile = useIsMobile();
-  const toolInfo = getToolInfo(tabId);
-  const siblings = getSiblingTools(tabId);
+  const toolInfo = getToolInfo(tabId, categoryId);
+  const siblings = getSiblingTools(tabId, categoryId);
 
   if (!toolInfo) {
     return <>{children}</>;
