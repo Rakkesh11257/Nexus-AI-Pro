@@ -290,16 +290,16 @@ export default function ToolScreen({
   const scrollContainerRef = useRef(null);
   const activeTabRef = useRef(null);
 
-  // Scroll active tab into view whenever tabId changes
+  // Only scroll if the active tab is completely out of view (clipped by container)
   useEffect(() => {
     if (activeTabRef.current && scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const activeEl = activeTabRef.current;
       const containerRect = container.getBoundingClientRect();
       const activeRect = activeEl.getBoundingClientRect();
-      // If the active tab is not fully visible, scroll it into view
-      if (activeRect.left < containerRect.left || activeRect.right > containerRect.right) {
-        activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      // Only scroll if tab is fully or mostly clipped — use 'nearest' to minimize movement
+      if (activeRect.right > containerRect.right || activeRect.left < containerRect.left) {
+        activeEl.scrollIntoView({ behavior: 'instant', inline: 'nearest', block: 'nearest' });
       }
     }
   }, [tabId]);
