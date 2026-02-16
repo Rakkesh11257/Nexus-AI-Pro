@@ -1047,10 +1047,23 @@ function App() {
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
       const output = pred.output;
-      const imgUrl = Array.isArray(output) ? output[0] : (typeof output === 'object' && output?.url ? output.url() : output);
-      const item = { type: 'image', url: imgUrl, prompt: i2iPrompt.trim(), model: i2iModel, ts: Date.now() };
-      setResults(prev => [item, ...prev]);
-      setHistory(prev => ({ ...prev, images: [item, ...prev.images].slice(0, 50) }));
+      // Handle various output formats: array of URLs, single URL string, or object with output_paths
+      let urls = [];
+      if (Array.isArray(output)) {
+        urls = output.filter(u => typeof u === 'string' && u.startsWith('http'));
+        // If array of objects with url field
+        if (urls.length === 0) urls = output.map(o => o?.url || o).filter(Boolean);
+      } else if (typeof output === 'string') {
+        urls = [output];
+      } else if (typeof output === 'object' && output !== null) {
+        // Some models return { output_paths: [...] }
+        if (output.output_paths) urls = output.output_paths;
+        else if (output.url) urls = [output.url];
+      }
+      if (urls.length === 0) urls = [Array.isArray(output) ? output[0] : output].filter(Boolean);
+      const items = urls.map(url => ({ type: 'image', url, prompt: i2iPrompt.trim(), model: i2iModel, ts: Date.now() }));
+      setResults(prev => [...items, ...prev]);
+      setHistory(prev => ({ ...prev, images: [...items, ...prev.images].slice(0, 50) }));
       finishJob(jobId);
     } catch (err) { setError(err.message); finishJob(jobId, err.message); }
   };
