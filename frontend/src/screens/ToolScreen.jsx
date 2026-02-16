@@ -43,6 +43,11 @@ const TOOL_ICONS = {
   'transcribe-audio': '🎙️',
   'train-model': '🧪',
   'ai-chat': '💬',
+  'face-swap': '🔄',
+  'image-upscale': '🔍',
+  'portrait-studio': '✨',
+  'edit-video': '✂️',
+  'video-face-swap': '🔄',
 };
 
 // ─── History Panel ───

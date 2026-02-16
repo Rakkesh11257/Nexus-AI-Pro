@@ -21,9 +21,9 @@ const CATEGORY_TOOLS = {
       { id: 'create-image', label: 'Create Image', media: '/samples/create-image.gif', tab: 'image' },
       { id: 'edit-image', label: 'Edit Image', media: '/samples/edit-image.gif', tab: 'i2i' },
       { id: 'animate-image', label: 'Animate Image', media: '/samples/animate-image.gif', tab: 'i2v' },
-      { id: 'face-swap', label: 'Face Swap', media: null, tab: null, comingSoon: true },
-      { id: 'image-upscale', label: 'Image Upscale', media: null, tab: null, comingSoon: true },
-      { id: 'skin-enhancer', label: 'Skin Enhancer', media: null, tab: null, comingSoon: true },
+      { id: 'face-swap', label: 'Face Swap', desc: 'Swap faces between photos', media: '/samples/face-swap.gif', tab: 'faceswap' },
+      { id: 'image-upscale', label: 'Image Upscale', desc: 'Enhance resolution up to 10x', media: '/samples/image-upscale.gif', tab: 'upscale' },
+      { id: 'portrait-studio', label: 'Portrait Studio', desc: 'Enhance portraits & change haircuts', media: '/samples/portrait-studio.gif', tab: 'skin' },
     ],
   },
   video: {
@@ -32,8 +32,10 @@ const CATEGORY_TOOLS = {
     color: '#a855f7',
     tools: [
       { id: 'create-video', label: 'Create Video', media: '/samples/create-video.gif', tab: 't2v' },
+      { id: 'edit-video', label: 'Edit Video', desc: 'Transform videos with AI prompts', media: '/samples/edit-video.gif', tab: 'v2v' },
       { id: 'animate-image-v', label: 'Animate Image', media: '/samples/animate-image.gif', tab: 'i2v' },
       { id: 'motion-sync', label: 'Motion Sync', media: '/samples/motion-sync.gif', tab: 'motion' },
+      { id: 'video-face-swap', label: 'Video Face Swap', desc: 'Swap faces in videos', media: '/samples/face-swap.gif', tab: 'videofs' },
     ],
   },
   audio: {

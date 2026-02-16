@@ -93,10 +93,32 @@ const IMAGE_MODELS = [
   { id: 'stability-ai/stable-diffusion-3.5-large', name: 'SD 3.5 Large', desc: 'Stability AI latest', maxSteps: 50, nsfw: false },
 ];
 const I2I_MODELS = [
-  { id: 'qwen/qwen-image', name: 'Qwen Image', desc: 'LoRA + img2img', nsfw: false },
-  { id: 'google/nano-banana-pro', name: 'Google Nano Banana Pro', desc: 'Google img2img', nsfw: false },
-  { id: 'stability-ai/stable-diffusion:ac732df83cea7fff18b8472768c88ad041fa750ff7682a21affe81863cbe77e4', name: 'Stable Diffusion 1.5', desc: 'Classic img2img', nsfw: false, useVersion: true },
-  { id: 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc', name: 'SDXL 1.0', desc: 'SDXL img2img', nsfw: false, useVersion: true },
+  { id: 'sdxl-based/consistent-character:9c77a3c2f884193fcee4d89645f02a0b9def9434f9e03cb98460456b831c8772', name: 'Consistent Character', desc: '$0.038/run (~₹3.20/run)', nsfw: true, useVersion: true },
+  { id: 'zsxkib/instant-id:2e4785a4d80dadf580077b2244c8d7c05d8e3faac04a04c02d8e099dd2876789', name: 'Instant-ID Pro', desc: '$0.031/run (~₹2.60/run)', nsfw: true, useVersion: true },
+  { id: 'minimax/image-01', name: 'minimax/image-01', desc: '$0.01/image (~₹0.84/image)', nsfw: false, isMinimax: true },
+  { id: 'zedge/instantid:ba2d5293be8794a05841a6f6eed81e810340142c3c25fab4838ff2b5d9574420', name: 'InstantID', desc: '$0.0015/run (~₹0.13/run)', nsfw: true, useVersion: true },
+  { id: 'qwen/qwen-image', name: 'Qwen Image', desc: '$0.025/image (~₹2.10)', nsfw: false },
+];
+const FACESWAP_MODELS = [
+  { id: 'cdingram/face-swap:d1d6ea8c8be89d664a07a457526f7128109dee7030fdac424788d762c71ed111', name: 'cdingram/face-swap', desc: '$0.014/run (~₹1.17/run)', nsfw: true, useVersion: true },
+  { id: 'codeplugtech/face-swap:278a81e7ebb22db98bcba54de985d22cc1abeead2754eb1f2af717247be69b34', name: 'codeplugtech/face-swap', desc: '$0.0025/run (~₹0.21/run)', nsfw: true, useVersion: true },
+];
+const UPSCALE_MODELS = [
+  { id: 'nightmareai/real-esrgan', name: 'nightmareai/real-esrgan', desc: '$0.002/image (~₹0.17/image)', nsfw: true },
+  { id: 'philz1337x/crystal-upscaler', name: 'philz1337x/crystal-upscaler', desc: '$0.05-3.20/image (~₹4.20-268/image)', nsfw: true },
+];
+const SKIN_MODELS = [
+  { id: 'fofr/kontext-make-person-real:3f0b0f59a22997052c144a76457f113f7c35f6573b9f994f14367ec35f96254d', name: 'fofr/kontext-make-person-real', desc: '$0.018/run (~₹1.51/run)', nsfw: true, useVersion: true },
+  { id: 'flux-kontext-apps/change-haircut', name: 'flux-kontext-apps/change-haircut', desc: '$0.04/image (~₹3.35/image)', nsfw: true, isHaircut: true },
+  { id: 'zsxkib/ic-light:d41bcb10d8c159868f4cfbd7c6a2ca01484f7d39e4613419d5952c61562f1ba7', name: 'zsxkib/ic-light', desc: '$0.011/image (~₹0.92/image)', nsfw: true, useVersion: true, isICLight: true },
+];
+const V2V_MODELS = [
+  { id: 'runwayml/gen4-aleph', name: 'runwayml/gen4-aleph', desc: '$0.18/sec (~₹15.10/sec)', nsfw: false },
+  { id: 'xai/grok-imagine-video', name: 'xai/grok-imagine-video', desc: '$0.05/sec (~₹4.20/sec)', nsfw: false, isGrokV2V: true },
+  { id: 'kwaivgi/kling-o1', name: 'kwaivgi/kling-o1', desc: '$0.126-0.168/sec (~₹10.60-14.10/sec)', nsfw: false, isKlingO1: true },
+];
+const VIDEOFS_MODELS = [
+  { id: 'xrunda/hello:104b4a39315349db50880757bc8c1c996c5309e3aa11286b0a3c84dab81fd440', name: 'Video Face Swap', desc: '~$0.12/run', price: '$0.12', useVersion: true },
 ];
 // I2V models with per-model config
 const I2V_MODELS = [
@@ -704,6 +726,21 @@ function App() {
   const [motionImage, setMotionImage] = useState(null);
   const [motionVideo, setMotionVideo] = useState(null);
   const [motionOpts, setMotionOpts] = useState({});
+  const [faceswapModel, setFaceswapModel] = useState(FACESWAP_MODELS[0].id);
+  const [faceswapSource, setFaceswapSource] = useState(null);
+  const [faceswapTarget, setFaceswapTarget] = useState(null);
+  const [upscaleModel, setUpscaleModel] = useState(UPSCALE_MODELS[0].id);
+  const [upscaleImage, setUpscaleImage] = useState(null);
+  const [upscaleScale, setUpscaleScale] = useState(4);
+  const [skinModel, setSkinModel] = useState(SKIN_MODELS[0].id);
+  const [skinImage, setSkinImage] = useState(null);
+  const [skinPrompt, setSkinPrompt] = useState('');
+  const [v2vModel, setV2vModel] = useState(V2V_MODELS[0].id);
+  const [v2vVideo, setV2vVideo] = useState(null);
+  const [v2vPrompt, setV2vPrompt] = useState('');
+  const [vfsModel, setVfsModel] = useState(VIDEOFS_MODELS[0].id);
+  const [vfsVideo, setVfsVideo] = useState(null);
+  const [vfsFaceImage, setVfsFaceImage] = useState(null);
 
   // Audio Generation
   const [audioModel, setAudioModel] = useState(AUDIO_MODELS[0].id);
@@ -1773,6 +1810,177 @@ function App() {
     reader.readAsDataURL(blob);
   });
 
+  // ─── Generate Face Swap ───
+  const generateFaceSwap = async () => {
+    if (!faceswapSource) return setError('Upload a source image');
+    if (!faceswapTarget) return setError('Upload a target face image');
+    if (!canGenerate()) return;
+    const jobId = addJob('faceswap', faceswapModel, 'Face Swap');
+    setError('');
+    try {
+      const srcUri = await toDataUri(faceswapSource);
+      const tgtUri = await toDataUri(faceswapTarget);
+      const input = { swap_image: srcUri, target_image: tgtUri };
+      const modelObj = FACESWAP_MODELS.find(m => m.id === faceswapModel);
+      updateJob(jobId, { status: 'Swapping faces...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: faceswapModel, input, version: modelObj?.useVersion ? faceswapModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Face swap failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: faceswapModel, prompt: 'Face Swap', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Upscale ───
+  const generateUpscale = async () => {
+    if (!upscaleImage) return setError('Upload an image to upscale');
+    if (!canGenerate()) return;
+    const jobId = addJob('upscale', upscaleModel, 'Image Upscale');
+    setError('');
+    try {
+      const imgUri = await toDataUri(upscaleImage);
+      const input = { image: imgUri, scale: upscaleScale };
+      updateJob(jobId, { status: 'Upscaling...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: upscaleModel, input })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Upscale failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: upscaleModel, prompt: 'Image Upscale', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Portrait Studio ───
+  const generateSkin = async () => {
+    if (!skinImage) return setError('Upload an image');
+    if (!canGenerate()) return;
+    const jobId = addJob('skin', skinModel, 'Portrait Studio');
+    setError('');
+    try {
+      const imgUri = await toDataUri(skinImage);
+      const modelObj = SKIN_MODELS.find(m => m.id === skinModel);
+      let input;
+      if (modelObj?.isHaircut) { input = { image: imgUri, prompt: skinPrompt || 'change haircut' }; }
+      else if (modelObj?.isICLight) { input = { image: imgUri, prompt: skinPrompt || 'portrait, professional lighting' }; }
+      else { input = { image: imgUri, prompt: skinPrompt || 'make this person look realistic' }; }
+      updateJob(jobId, { status: 'Processing portrait...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: skinModel, input, version: modelObj?.useVersion ? skinModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Portrait processing failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: skinModel, prompt: skinPrompt || 'Portrait Studio', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate V2V ───
+  const generateV2V = async () => {
+    if (!v2vVideo) return setError('Upload a source video');
+    if (!v2vPrompt) return setError('Enter a prompt');
+    if (!canGenerate()) return;
+    const jobId = addJob('v2v', v2vModel, 'Edit Video');
+    setError('');
+    try {
+      const videoUri = await toDataUri(v2vVideo);
+      const modelObj = V2V_MODELS.find(m => m.id === v2vModel);
+      let input;
+      if (modelObj?.isGrokV2V) { input = { prompt: v2vPrompt, image: videoUri }; }
+      else if (modelObj?.isKlingO1) { input = { prompt: v2vPrompt, input_video: videoUri }; }
+      else { input = { prompt: v2vPrompt, video: videoUri }; }
+      updateJob(jobId, { status: 'Editing video...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: v2vModel, input })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Video editing failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'video', model: v2vModel, prompt: v2vPrompt, ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Video Face Swap ───
+  const generateVideoFS = async () => {
+    if (!vfsVideo) return setError('Upload a source video');
+    if (!vfsFaceImage) return setError('Upload a face image');
+    if (!canGenerate()) return;
+    const jobId = addJob('videofs', vfsModel, 'Video Face Swap');
+    setError('');
+    try {
+      const videoUri = await toDataUri(vfsVideo);
+      const faceUri = await toDataUri(vfsFaceImage);
+      const input = { source: videoUri, target: faceUri };
+      const modelObj = VIDEOFS_MODELS.find(m => m.id === vfsModel);
+      updateJob(jobId, { status: 'Swapping face in video...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: vfsModel, input, version: modelObj?.useVersion ? vfsModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Video face swap failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'video', model: vfsModel, prompt: 'Video Face Swap', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+
   // ─── Render ───
   if (authState === 'loading') return (<><StarField /><div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}><div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#22d47b', borderRadius: '50%' }} /></div></>);
   if (authState === 'auth') return <AuthScreen onAuth={handleAuth} />;
@@ -1818,13 +2026,13 @@ function App() {
           <ToolScreen
             tabId={tab}
             onBack={() => {
-              const categoryToolTabs = { image: 'image', i2i: 'image', i2v: 'image', t2v: 'video', motion: 'video', audio: 'audio', transcribe: 'transcribe', train: 'character', chat: 'chat' };
+              const categoryToolTabs = { image: 'image', i2i: 'image', faceswap: 'image', upscale: 'image', skin: 'image', i2v: 'image', t2v: 'video', v2v: 'video', motion: 'video', videofs: 'video', audio: 'audio', transcribe: 'transcribe', train: 'character', chat: 'chat' };
               const catId = categoryToolTabs[tab];
               if (catId) { setScreen('category:' + catId); } else { navigateHome(); }
             }}
             onSwitchTool={(newTab) => { setTab(newTab); setScreen(newTab); }}
             results={results.filter(r => {
-              const tabTypes = { image: ['image'], i2i: ['image'], i2v: ['video'], t2v: ['video'], motion: ['video'], audio: ['audio'], transcribe: ['transcription'] };
+              const tabTypes = { image: ['image'], i2i: ['image'], faceswap: ['image'], upscale: ['image'], skin: ['image'], i2v: ['video'], t2v: ['video'], v2v: ['video'], motion: ['video'], videofs: ['video'], audio: ['audio'], transcribe: ['transcription'] };
               const types = tabTypes[tab] || [];
               return types.includes(r.type);
             })}
@@ -2527,6 +2735,72 @@ function App() {
         )}
 
         {/* ══ HISTORY TAB ══ */}
+        {/* ══ FACE SWAP TAB ══ */}
+        {tab === 'faceswap' && (
+          <div>
+            <ModelSelector models={FACESWAP_MODELS} value={faceswapModel} onChange={v => setFaceswapModel(v)} />
+            <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Image</label>
+                {faceswapSource ? (<div style={{ position: 'relative', display: 'inline-block' }}><img src={faceswapSource} alt="" style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setFaceswapSource(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '30px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)' }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f5bc;&#xfe0f;</div>Source image<br/><span style={{ fontSize: 11, color: '#555' }}>Image with body/scene</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setFaceswapSource(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Target Face</label>
+                {faceswapTarget ? (<div style={{ position: 'relative', display: 'inline-block' }}><img src={faceswapTarget} alt="" style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setFaceswapTarget(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '30px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)' }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f600;</div>Face photo<br/><span style={{ fontSize: 11, color: '#555' }}>Clear face to swap in</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setFaceswapTarget(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+              </div>
+            </div>
+            <button onClick={generateFaceSwap} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Swap Faces'}</button>
+          </div>
+        )}
+        {/* ══ IMAGE UPSCALE TAB ══ */}
+        {tab === 'upscale' && (
+          <div>
+            <ModelSelector models={UPSCALE_MODELS} value={upscaleModel} onChange={v => setUpscaleModel(v)} />
+            <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Image to Upscale</label>
+            {upscaleImage ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><img src={upscaleImage} alt="" style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setUpscaleImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f50d;</div>Upload image to upscale<br/><span style={{ fontSize: 11, color: '#555' }}>Enhance resolution up to 10x</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setUpscaleImage(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+            <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Scale Factor: {upscaleScale}x</label><input type="range" min="2" max="10" value={upscaleScale} onChange={e => setUpscaleScale(Number(e.target.value))} style={{ width: '100%' }} /></div>
+            <button onClick={generateUpscale} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Upscale Image'}</button>
+          </div>
+        )}
+        {/* ══ PORTRAIT STUDIO TAB ══ */}
+        {tab === 'skin' && (
+          <div>
+            <ModelSelector models={SKIN_MODELS} value={skinModel} onChange={v => setSkinModel(v)} />
+            <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Portrait Image</label>
+            {skinImage ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><img src={skinImage} alt="" style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setSkinImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f464;</div>Upload portrait<br/><span style={{ fontSize: 11, color: '#555' }}>Face photo for enhancement</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setSkinImage(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+            <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Prompt (optional)</label><input type="text" value={skinPrompt} onChange={e => setSkinPrompt(e.target.value)} placeholder="e.g. change haircut, professional lighting..." style={{ ...S.input, width: '100%' }} /></div>
+            <button onClick={generateSkin} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Process Portrait'}</button>
+          </div>
+        )}
+        {/* ══ V2V EDIT VIDEO TAB ══ */}
+        {tab === 'v2v' && (
+          <div>
+            <ModelSelector models={V2V_MODELS} value={v2vModel} onChange={v => setV2vModel(v)} />
+            <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
+            {v2vVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={v2vVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setV2vVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to edit<br/><span style={{ fontSize: 11, color: '#555' }}>Video to transform with AI</span><input type="file" accept="video/*" onChange={e => { const f = e.target.files?.[0]; if (f) setV2vVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+            <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Edit Prompt</label><textarea value={v2vPrompt} onChange={e => setV2vPrompt(e.target.value)} placeholder="Describe how to transform the video..." rows={3} style={{ ...S.input, width: '100%', resize: 'vertical' }} /></div>
+            <button onClick={generateV2V} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Edit Video'}</button>
+          </div>
+        )}
+        {/* ══ VIDEO FACE SWAP TAB ══ */}
+        {tab === 'videofs' && (
+          <div>
+            <ModelSelector models={VIDEOFS_MODELS} value={vfsModel} onChange={v => setVfsModel(v)} />
+            <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
+                {vfsVideo ? (<div style={{ position: 'relative', display: 'inline-block' }}><video src={vfsVideo} style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setVfsVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '30px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)' }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video<br/><span style={{ fontSize: 11, color: '#555' }}>Video with face to replace</span><input type="file" accept="video/*" onChange={e => { const f = e.target.files?.[0]; if (f) setVfsVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Face Image</label>
+                {vfsFaceImage ? (<div style={{ position: 'relative', display: 'inline-block' }}><img src={vfsFaceImage} alt="" style={{ maxHeight: 160, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setVfsFaceImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '30px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)' }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f600;</div>Face image<br/><span style={{ fontSize: 11, color: '#555' }}>Clear face photo works best</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setVfsFaceImage(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+              </div>
+            </div>
+            <button onClick={generateVideoFS} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Swap Face in Video'}</button>
+          </div>
+        )}
+
+
         {tab === 'history' && (
           <div>
             {/* Images History */}

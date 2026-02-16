@@ -1,0 +1,169 @@
+  // ─── Generate Face Swap ───
+  const generateFaceSwap = async () => {
+    if (!faceswapSource) return setError('Upload a source image');
+    if (!faceswapTarget) return setError('Upload a target face image');
+    if (!canGenerate()) return;
+    const jobId = addJob('faceswap', faceswapModel, 'Face Swap');
+    setError('');
+    try {
+      const srcUri = await toDataUri(faceswapSource);
+      const tgtUri = await toDataUri(faceswapTarget);
+      const input = { swap_image: srcUri, target_image: tgtUri };
+      const modelObj = FACESWAP_MODELS.find(m => m.id === faceswapModel);
+      updateJob(jobId, { status: 'Swapping faces...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: faceswapModel, input, version: modelObj?.useVersion ? faceswapModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Face swap failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: faceswapModel, prompt: 'Face Swap', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Upscale ───
+  const generateUpscale = async () => {
+    if (!upscaleImage) return setError('Upload an image to upscale');
+    if (!canGenerate()) return;
+    const jobId = addJob('upscale', upscaleModel, 'Image Upscale');
+    setError('');
+    try {
+      const imgUri = await toDataUri(upscaleImage);
+      const input = { image: imgUri, scale: upscaleScale };
+      updateJob(jobId, { status: 'Upscaling...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: upscaleModel, input })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Upscale failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: upscaleModel, prompt: 'Image Upscale', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Portrait Studio ───
+  const generateSkin = async () => {
+    if (!skinImage) return setError('Upload an image');
+    if (!canGenerate()) return;
+    const jobId = addJob('skin', skinModel, 'Portrait Studio');
+    setError('');
+    try {
+      const imgUri = await toDataUri(skinImage);
+      const modelObj = SKIN_MODELS.find(m => m.id === skinModel);
+      let input;
+      if (modelObj?.isHaircut) { input = { image: imgUri, prompt: skinPrompt || 'change haircut' }; }
+      else if (modelObj?.isICLight) { input = { image: imgUri, prompt: skinPrompt || 'portrait, professional lighting' }; }
+      else { input = { image: imgUri, prompt: skinPrompt || 'make this person look realistic' }; }
+      updateJob(jobId, { status: 'Processing portrait...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: skinModel, input, version: modelObj?.useVersion ? skinModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Portrait processing failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'image', model: skinModel, prompt: skinPrompt || 'Portrait Studio', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate V2V ───
+  const generateV2V = async () => {
+    if (!v2vVideo) return setError('Upload a source video');
+    if (!v2vPrompt) return setError('Enter a prompt');
+    if (!canGenerate()) return;
+    const jobId = addJob('v2v', v2vModel, 'Edit Video');
+    setError('');
+    try {
+      const videoUri = await toDataUri(v2vVideo);
+      const modelObj = V2V_MODELS.find(m => m.id === v2vModel);
+      let input;
+      if (modelObj?.isGrokV2V) { input = { prompt: v2vPrompt, image: videoUri }; }
+      else if (modelObj?.isKlingO1) { input = { prompt: v2vPrompt, input_video: videoUri }; }
+      else { input = { prompt: v2vPrompt, video: videoUri }; }
+      updateJob(jobId, { status: 'Editing video...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: v2vModel, input })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Video editing failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'video', model: v2vModel, prompt: v2vPrompt, ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
+
+  // ─── Generate Video Face Swap ───
+  const generateVideoFS = async () => {
+    if (!vfsVideo) return setError('Upload a source video');
+    if (!vfsFaceImage) return setError('Upload a face image');
+    if (!canGenerate()) return;
+    const jobId = addJob('videofs', vfsModel, 'Video Face Swap');
+    setError('');
+    try {
+      const videoUri = await toDataUri(vfsVideo);
+      const faceUri = await toDataUri(vfsFaceImage);
+      const input = { source: videoUri, target: faceUri };
+      const modelObj = VIDEOFS_MODELS.find(m => m.id === vfsModel);
+      updateJob(jobId, { status: 'Swapping face in video...' });
+      const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ model: vfsModel, input, version: modelObj?.useVersion ? vfsModel.split(':')[1] : undefined })
+      });
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      const pred = await resp.json();
+      if (pred.error) throw new Error(pred.error);
+      let result = pred;
+      while (result.status !== 'succeeded' && result.status !== 'failed') {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        result = await poll.json();
+        updateJob(jobId, { status: result.status });
+      }
+      if (result.status === 'failed') throw new Error(result.error || 'Video face swap failed');
+      const output = typeof result.output === 'string' ? result.output : Array.isArray(result.output) ? result.output[0] : result.output;
+      setResults(prev => [{ url: output, type: 'video', model: vfsModel, prompt: 'Video Face Swap', ts: Date.now() }, ...prev]);
+      finishJob(jobId);
+    } catch (err) { setError(err.message); finishJob(jobId, err.message); }
+  };
