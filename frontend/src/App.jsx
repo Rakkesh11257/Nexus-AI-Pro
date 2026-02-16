@@ -1823,17 +1823,17 @@ function App() {
       const input = { swap_image: srcUri, target_image: tgtUri };
       const modelObj = FACESWAP_MODELS.find(m => m.id === faceswapModel);
       updateJob(jobId, { status: 'Swapping faces...' });
+      const reqBody = modelObj?.useVersion ? { version: faceswapModel.split(':')[1], input } : { model: faceswapModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
-        body: JSON.stringify({ model: faceswapModel, input, version: modelObj?.useVersion ? faceswapModel.split(':')[1] : undefined })
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(reqBody)
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
-      const pred = await resp.json();
-      if (pred.error) throw new Error(pred.error);
-      let result = pred;
+      if (!resp.ok) throw new Error(await parseApiError(resp));
+      let result = await resp.json();
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
         result = await poll.json();
         updateJob(jobId, { status: result.status });
       }
@@ -1855,16 +1855,15 @@ function App() {
       const input = { image: imgUri, scale: upscaleScale };
       updateJob(jobId, { status: 'Upscaling...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ model: upscaleModel, input })
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
-      const pred = await resp.json();
-      if (pred.error) throw new Error(pred.error);
-      let result = pred;
+      if (!resp.ok) throw new Error(await parseApiError(resp));
+      let result = await resp.json();
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
         result = await poll.json();
         updateJob(jobId, { status: result.status });
       }
@@ -1889,17 +1888,17 @@ function App() {
       else if (modelObj?.isICLight) { input = { image: imgUri, prompt: skinPrompt || 'portrait, professional lighting' }; }
       else { input = { image: imgUri, prompt: skinPrompt || 'make this person look realistic' }; }
       updateJob(jobId, { status: 'Processing portrait...' });
+      const reqBody = modelObj?.useVersion ? { version: skinModel.split(':')[1], input } : { model: skinModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
-        body: JSON.stringify({ model: skinModel, input, version: modelObj?.useVersion ? skinModel.split(':')[1] : undefined })
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(reqBody)
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
-      const pred = await resp.json();
-      if (pred.error) throw new Error(pred.error);
-      let result = pred;
+      if (!resp.ok) throw new Error(await parseApiError(resp));
+      let result = await resp.json();
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
         result = await poll.json();
         updateJob(jobId, { status: result.status });
       }
@@ -1926,16 +1925,15 @@ function App() {
       else { input = { prompt: v2vPrompt, video: videoUri }; }
       updateJob(jobId, { status: 'Editing video...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ model: v2vModel, input })
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
-      const pred = await resp.json();
-      if (pred.error) throw new Error(pred.error);
-      let result = pred;
+      if (!resp.ok) throw new Error(await parseApiError(resp));
+      let result = await resp.json();
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
         result = await poll.json();
         updateJob(jobId, { status: result.status });
       }
@@ -1959,17 +1957,17 @@ function App() {
       const input = { source: videoUri, target: faceUri };
       const modelObj = VIDEOFS_MODELS.find(m => m.id === vfsModel);
       updateJob(jobId, { status: 'Swapping face in video...' });
+      const reqBody = modelObj?.useVersion ? { version: vfsModel.split(':')[1], input } : { model: vfsModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
-        body: JSON.stringify({ model: vfsModel, input, version: modelObj?.useVersion ? vfsModel.split(':')[1] : undefined })
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(reqBody)
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
-      const pred = await resp.json();
-      if (pred.error) throw new Error(pred.error);
-      let result = pred;
+      if (!resp.ok) throw new Error(await parseApiError(resp));
+      let result = await resp.json();
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken } });
+        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
         result = await poll.json();
         updateJob(jobId, { status: result.status });
       }
