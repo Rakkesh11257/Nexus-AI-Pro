@@ -644,7 +644,7 @@ function SettingsModal({ apiKey, onSave, onClose }) {
 }
 
 // ─── Media Viewer Modal ───
-function ViewerModal({ item, onClose, onUseForVideo }) {
+function ViewerModal({ item, onClose, onUseForVideo, onDelete }) {
   if (!item) return null;
   return (
     <div style={S.overlay} onClick={onClose}>
@@ -658,6 +658,7 @@ function ViewerModal({ item, onClose, onUseForVideo }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'center' }}>
           <a href={item.url} download target="_blank" rel="noopener noreferrer" style={{ ...S.btnSm, textDecoration: 'none' }}>⬇ Download</a>
           {item.type === 'image' && <button onClick={() => onUseForVideo(item.url)} style={S.btnSm}>🎬 Use for Video</button>}
+          {onDelete && <button onClick={() => { onDelete(item); onClose(); }} style={{ ...S.btnSm, color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>🗑 Delete</button>}
         </div>
       </div>
     </div>
@@ -2207,6 +2208,12 @@ function App() {
               return types.includes(r.type);
             })}
             onViewItem={(item) => setViewerItem(item)}
+            onDeleteItem={(item) => setResults(prev => prev.filter(r => r !== item))}
+            onDeleteAll={() => {
+              const tabTypes = { image: ['image'], i2i: ['image'], faceswap: ['image'], upscale: ['image'], skin: ['image'], i2v: ['video'], t2v: ['video'], v2v: ['video'], motion: ['video'], videofs: ['video'], audio: ['audio'], transcribe: ['transcription'] };
+              const types = tabTypes[tab] || [];
+              setResults(prev => prev.filter(r => !types.includes(r.type)));
+            }}
           >
 
         {/* Error */}
@@ -3024,7 +3031,7 @@ function App() {
       {/* Modals */}
       {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} accessToken={accessToken} user={user} onPaymentSuccess={(plan) => { setUser(prev => ({ ...prev, isPaid: true, paymentPlan: plan })); setShowPaywall(false); }} />}
       {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} />}
-      {viewerItem && <ViewerModal item={viewerItem} onClose={() => setViewerItem(null)} onUseForVideo={useForVideo} />}
+      {viewerItem && <ViewerModal item={viewerItem} onClose={() => setViewerItem(null)} onUseForVideo={useForVideo} onDelete={(item) => { setResults(prev => prev.filter(r => r !== item)); setViewerItem(null); }} />}
     </div>
   );
 }

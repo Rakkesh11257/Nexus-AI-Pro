@@ -51,8 +51,9 @@ const TOOL_ICONS = {
 };
 
 // ─── History Panel ───
-function HistoryPanel({ results, onViewItem, isMobile }) {
+function HistoryPanel({ results, onViewItem, onDeleteItem, onDeleteAll, isMobile }) {
   const items = results || [];
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -70,9 +71,24 @@ function HistoryPanel({ results, onViewItem, isMobile }) {
             fontFamily: "'Outfit', sans-serif",
           }}>Generation History</span>
         </div>
-        {items.length > 0 && (
-          <span style={{ fontSize: 12, color: '#555' }}>{items.length} results</span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {items.length > 0 && (
+            <span style={{ fontSize: 12, color: '#555' }}>{items.length} results</span>
+          )}
+          {items.length > 0 && onDeleteAll && (
+            confirmDeleteAll ? (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#fca5a5' }}>Delete all?</span>
+                <button onClick={() => { onDeleteAll(); setConfirmDeleteAll(false); }} style={{ padding: '3px 10px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6, color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Yes</button>
+                <button onClick={() => setConfirmDeleteAll(false)} style={{ padding: '3px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#888', fontSize: 11, cursor: 'pointer' }}>No</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDeleteAll(true)} style={{ padding: '4px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 4 }}>
+                🗑 Delete All
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Results grid or empty state */}
@@ -87,7 +103,6 @@ function HistoryPanel({ results, onViewItem, isMobile }) {
           {items.map((item, i) => (
             <div
               key={i}
-              onClick={() => onViewItem && onViewItem(item)}
               style={{
                 background: '#111827',
                 borderRadius: 10,
@@ -95,35 +110,57 @@ function HistoryPanel({ results, onViewItem, isMobile }) {
                 border: '1px solid #1f2937',
                 cursor: 'pointer',
                 transition: 'border-color 0.2s',
+                position: 'relative',
               }}
             >
-              {item.type === 'video' ? (
-                <video
-                  src={item.url}
-                  muted
-                  playsInline
-                  onMouseEnter={e => e.target?.play?.()}
-                  onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}}
-                  style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
-                />
-              ) : item.type === 'audio' ? (
-                <div style={{ padding: '12px 10px 6px' }}>
-                  <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>🎵</div>
-                  <audio src={item.url} controls style={{ width: '100%', height: 32 }} onClick={e => e.stopPropagation()} />
-                </div>
-              ) : (
-                <img
-                  src={item.url}
-                  alt=''
-                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-                  onError={e => { e.target.style.display = 'none'; }}
-                />
+              {/* Delete button on each card */}
+              {onDeleteItem && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteItem(item); }}
+                  style={{
+                    position: 'absolute', top: 6, right: 6, zIndex: 5,
+                    width: 26, height: 26, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', fontSize: 13,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(239,68,68,0.3)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.background = 'rgba(0,0,0,0.65)'; }}
+                  title="Delete"
+                >✕</button>
               )}
-              <div style={{ padding: '6px 8px' }}>
-                <p style={{
-                  fontSize: 11, color: '#777', margin: 0,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{item.prompt || 'Generated'}</p>
+              <div onClick={() => onViewItem && onViewItem(item)}>
+                {item.type === 'video' ? (
+                  <video
+                    src={item.url}
+                    muted
+                    playsInline
+                    onMouseEnter={e => e.target?.play?.()}
+                    onMouseLeave={e => { if(e.target?.pause) { e.target.pause(); e.target.currentTime = 0; }}}
+                    style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : item.type === 'audio' ? (
+                  <div style={{ padding: '12px 10px 6px' }}>
+                    <div style={{ fontSize: 22, textAlign: 'center', marginBottom: 6 }}>🎵</div>
+                    <audio src={item.url} controls style={{ width: '100%', height: 32 }} onClick={e => e.stopPropagation()} />
+                  </div>
+                ) : (
+                  <img
+                    src={item.url}
+                    alt=''
+                    style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                )}
+                <div style={{ padding: '6px 8px' }}>
+                  <p style={{
+                    fontSize: 11, color: '#777', margin: 0,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{item.prompt || 'Generated'}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -194,6 +231,8 @@ export default function ToolScreen({
   onSwitchTool,
   results,
   onViewItem,
+  onDeleteItem,
+  onDeleteAll,
   children,
 }) {
   const isMobile = useIsMobile();
@@ -266,7 +305,7 @@ export default function ToolScreen({
             {children}
           </div>
           <div style={{ padding: '0 14px 20px' }}>
-            <HistoryPanel results={results} onViewItem={onViewItem} isMobile={isMobile} />
+            <HistoryPanel results={results} onViewItem={onViewItem} onDeleteItem={onDeleteItem} onDeleteAll={onDeleteAll} isMobile={isMobile} />
           </div>
         </div>
       ) : (
@@ -291,7 +330,7 @@ export default function ToolScreen({
           </div>
           {/* Right panel: history */}
           <div style={{ flex: 1, padding: '18px 24px', overflowY: 'auto' }}>
-            <HistoryPanel results={results} onViewItem={onViewItem} isMobile={isMobile} />
+            <HistoryPanel results={results} onViewItem={onViewItem} onDeleteItem={onDeleteItem} onDeleteAll={onDeleteAll} isMobile={isMobile} />
           </div>
         </div>
       )}
