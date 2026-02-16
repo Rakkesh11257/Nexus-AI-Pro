@@ -957,7 +957,8 @@ function App() {
       const dataUri = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
 
       const curI2IModel = I2I_MODELS.find(m => m.id === i2iModel);
-      const input = { prompt: i2iPrompt.trim(), image: dataUri };
+      // Consistent Character model uses 'subject' not 'image'
+      const input = i2iModel.includes('consistent-character') ? { prompt: i2iPrompt.trim(), subject: dataUri } : { prompt: i2iPrompt.trim(), image: dataUri };
 
       // Model-specific params
       if (i2iModel.includes('nano-banana')) {
