@@ -98,8 +98,8 @@ function HistoryPanel({ results, onViewItem, onDeleteItem, onDeleteAll, isMobile
           gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))',
           gap: 10,
           overflowY: 'auto',
-          flex: 1,
           alignItems: 'start',
+          alignContent: 'start',
         }}>
           {items.map((item, i) => (
             <div
