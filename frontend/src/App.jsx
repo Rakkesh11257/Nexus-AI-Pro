@@ -120,6 +120,7 @@ const V2V_MODELS = [
 ];
 const VIDEOFS_MODELS = [
   { id: 'xrunda/hello:104b4a39315349db50880757bc8c1c996c5309e3aa11286b0a3c84dab81fd440', name: 'Video Face Swap', desc: '~$0.12/run (~₹10.05/run)', price: '$0.12', useVersion: true },
+  { id: 'okaris/roop:8c1e100ecabb3151cf1e6c62879b6de7a4b84602de464ed249b6cff0b86211d8', name: 'Roop Face Swap', desc: '$0.074/run (~₹6.20/run)', useVersion: true, isRoop: true },
 ];
 // I2V models with per-model config
 const I2V_MODELS = [
@@ -2186,8 +2187,15 @@ function App() {
     try {
       const videoUri = await toDataUri(vfsVideo);
       const faceUri = await toDataUri(vfsFaceImage);
-      const input = { source: videoUri, target: faceUri };
       const modelObj = VIDEOFS_MODELS.find(m => m.id === vfsModel);
+      let input;
+      if (modelObj?.isRoop) {
+        // Roop: source = face image, target = video
+        input = { source: faceUri, target: videoUri, keep_fps: true, keep_frames: true, enhance_face: true };
+      } else {
+        // xrunda/hello: source = video, target = face image
+        input = { source: videoUri, target: faceUri };
+      }
       updateJob(jobId, { status: 'Swapping face in video...' });
       const reqBody = modelObj?.useVersion ? { version: vfsModel.split(':')[1], input } : { model: vfsModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
