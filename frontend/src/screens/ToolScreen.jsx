@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CATEGORY_TOOLS } from './CategoryScreen.jsx';
 
 // ─── Hook: detect mobile ───
@@ -286,18 +286,33 @@ export default function ToolScreen({
     </div>
   );
 
-  // Shared sub-tool cards (OpenArt style) — manual scroll only, no auto-scroll
+  // Shared sub-tool cards — preserve scroll position across tab switches
+  const scrollPosRef = useRef(0);
+  const scrollElRef = useCallback((node) => {
+    if (node) {
+      // Restore saved scroll position when DOM remounts
+      node.scrollLeft = scrollPosRef.current;
+      // Save scroll position on every scroll
+      const handler = () => { scrollPosRef.current = node.scrollLeft; };
+      node.addEventListener('scroll', handler, { passive: true });
+      node._cleanup = () => node.removeEventListener('scroll', handler);
+    }
+  }, []);
+
   const SubToolCards = ({ padding }) => {
     if (siblings.length <= 1) return null;
     return (
-      <div style={{
-        display: 'flex',
-        gap: 8,
-        padding: padding || '14px 20px',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none',
-      }}>
+      <div
+        ref={scrollElRef}
+        style={{
+          display: 'flex',
+          gap: 8,
+          padding: padding || '14px 20px',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+        }}
+      >
         {siblings.map(t => (
           <ToolCard
             key={t.id}
