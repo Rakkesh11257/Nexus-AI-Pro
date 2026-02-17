@@ -35,8 +35,8 @@ const CATEGORY_TOOLS = {
       { id: 'edit-video', label: 'Edit Video', desc: 'Transform videos with AI prompts', media: '/samples/edit-video.gif', tab: 'v2v' },
       { id: 'animate-image-v', label: 'Animate Image', media: '/samples/animate-image.gif', tab: 'i2v' },
       { id: 'motion-sync', label: 'Motion Sync', media: '/samples/motion-sync.gif', tab: 'motion' },
-      { id: 'video-face-swap', label: 'Video Face Swap', desc: 'Swap faces in videos', media: '/samples/face-swap.gif', tab: 'videofs' },
-      { id: 'video-enhance', label: 'Replace Character', desc: 'Replace characters in videos with AI', media: '/samples/image-upscale.gif', tab: 'replacechar' },
+      { id: 'video-face-swap', label: 'Video Face Swap', desc: 'Swap faces in videos', media: '/samples/face-swap-video.gif', tab: 'videofs' },
+      { id: 'video-enhance', label: 'Replace Character', desc: 'Replace characters in videos with AI', media: '/samples/replace-character.gif', tab: 'replacechar' },
     ],
   },
   audio: {
@@ -45,7 +45,7 @@ const CATEGORY_TOOLS = {
     color: '#f59e0b',
     tools: [
       { id: 'music-gen', label: 'Music Generation', media: '/samples/music-gen.gif', tab: 'audio' },
-      { id: 'voice-clone', label: 'Voice Clone', desc: 'Clone any voice with AI', media: '/samples/music-gen.gif', tab: 'voiceclone' },
+      { id: 'voice-clone', label: 'Voice Clone', desc: 'Clone any voice with AI', media: '/samples/voice-clone.gif', tab: 'voiceclone' },
     ],
   },
   transcribe: {
