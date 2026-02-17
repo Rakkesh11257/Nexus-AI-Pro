@@ -123,7 +123,7 @@ const VIDEOFS_MODELS = [
   { id: 'okaris/roop:8c1e100ecabb3151cf1e6c62879b6de7a4b84602de464ed249b6cff0b86211d8', name: 'Roop Face Swap', desc: '$0.074/run (~₹6.20/run)', useVersion: true, isRoop: true },
 ];
 const VENHANCE_MODELS = [
-  // Models will be added here
+  { id: 'runwayml/upscale-v1', name: 'Runway Upscale V1', desc: '$0.02/sec (~₹1.68/sec)', nsfw: false },
 ];
 // I2V models with per-model config
 const I2V_MODELS = [
@@ -2236,6 +2236,11 @@ function App() {
     setError('');
     try {
       const modelObj = VENHANCE_MODELS.find(m => m.id === venhanceModel);
+      // Validate file size
+      const vidResp = await fetch(venhanceVideo);
+      const vidBlob = await vidResp.blob();
+      const vidSizeMB = vidBlob.size / (1024 * 1024);
+      if (vidSizeMB > 16) throw new Error(`Video is ${vidSizeMB.toFixed(1)}MB. Max is 16MB.`);
       updateJob(jobId, { status: 'Uploading video...' });
       const videoUrl = await uploadToReplicate(venhanceVideo, 'video/mp4');
       let input = { video: videoUrl };
@@ -3094,7 +3099,7 @@ function App() {
               <>
                 <ModelSelector models={VENHANCE_MODELS} value={venhanceModel} onChange={v => setVenhanceModel(v)} />
                 <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
-                {venhanceVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={venhanceVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setVenhanceVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to enhance<br/><span style={{ fontSize: 11, color: '#555' }}>Upscale resolution &amp; improve quality</span><input type="file" accept="video/*" onChange={e => { const f = e.target.files?.[0]; if (f) setVenhanceVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+                {venhanceVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={venhanceVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setVenhanceVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to enhance<br/><span style={{ fontSize: 11, color: '#555' }}>Max 16MB • Max 40s • Max 4096px per side</span><input type="file" accept="video/*" onChange={e => { const f = e.target.files?.[0]; if (f) setVenhanceVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
                 <button onClick={generateVideoEnhance} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Enhance Video'}</button>
               </>
             ) : (
