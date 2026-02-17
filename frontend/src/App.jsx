@@ -194,7 +194,7 @@ const AUDIO_MODELS = [
     params: { video: true, image: true, negative_prompt: true, duration: { min: 1, max: 30, default: 8 }, num_steps: { min: 1, max: 50, default: 25 }, cfg_strength: { min: 1, max: 10, default: 4.5 }, seed: true } },
 ];
 const VOICECLONE_MODELS = [
-  // Models will be added here
+  { id: 'lucataco/xtts-v2:684bc3855b37866c0c65add2ff39c78f3dea3f4ff103a436465326e0f438d55e', name: 'XTTS V2', desc: '$0.13/run (~\u20b910.89/run)', useVersion: true },
 ];
 // Transcribe models
 const TRANSCRIBE_MODELS = [
@@ -775,6 +775,8 @@ function App() {
   const [voicecloneModel, setVoicecloneModel] = useState(VOICECLONE_MODELS[0]?.id || '');
   const [voicecloneAudio, setVoicecloneAudio] = useState(null);
   const [voicecloneText, setVoicecloneText] = useState('');
+  const [voicecloneLang, setVoicecloneLang] = useState('en');
+  const [voicecloneCleanup, setVoicecloneCleanup] = useState(false);
 
   // Audio Generation
   const [audioModel, setAudioModel] = useState(AUDIO_MODELS[0].id);
@@ -2303,8 +2305,7 @@ function App() {
       const modelObj = VOICECLONE_MODELS.find(m => m.id === voicecloneModel);
       updateJob(jobId, { status: 'Uploading voice sample...' });
       const audioUrl = await uploadToReplicate(voicecloneAudio, 'audio/mpeg');
-      let input = { audio: audioUrl, text: voicecloneText.trim() };
-      // Model-specific input will be added here
+      let input = { speaker: audioUrl, text: voicecloneText.trim(), language: voicecloneLang || 'en', cleanup_voice: voicecloneCleanup }; 
       updateJob(jobId, { status: 'Cloning voice...' });
       const reqBody = modelObj?.useVersion && voicecloneModel.includes(':') ? { version: voicecloneModel.split(':')[1], input } : { model: voicecloneModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
