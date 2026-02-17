@@ -600,10 +600,41 @@ app.post('/api/replicate/upload', requirePaid, async (req, res) => {
 
     console.log('>>> Uploading to Replicate Files:', uploadFilename, mime, buffer.length, 'bytes');
 
-    // Try multipart/form-data first (current Replicate API), fallback to raw binary
-    let createRes;
+    // Method: Use Replicate's upload URL approach (serves with correct Content-Type)
+    // Step 1: Create an upload URL
+    const createUrlRes = await fetch('https://api.replicate.com/v1/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filename: uploadFilename,
+        content_type: mime,
+      }),
+    });
 
-    // Method 1: multipart/form-data with 'content' field
+    if (createUrlRes.ok) {
+      const urlData = await createUrlRes.json();
+      console.log('>>> Got upload URL, uploading via PUT...');
+
+      // Step 2: PUT the file to the upload URL
+      const putRes = await fetch(urlData.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': mime },
+        body: buffer,
+      });
+
+      if (putRes.ok || putRes.status === 200 || putRes.status === 201) {
+        console.log('>>> File uploaded via URL method. Serving URL:', urlData.serving_url);
+        return res.json({ url: urlData.serving_url, id: urlData.id, content_type: mime });
+      }
+      console.log('>>> PUT upload failed:', putRes.status, ', falling back to multipart...');
+    } else {
+      console.log('>>> Upload URL method not available, falling back to multipart...');
+    }
+
+    // Fallback: multipart/form-data upload (may serve as application/octet-stream)
     const boundary = `----ReplicateUpload${Date.now()}`;
     const CRLF = '\r\n';
     const headerPart = `--${boundary}${CRLF}Content-Disposition: form-data; name="content"; filename="${uploadFilename}"${CRLF}Content-Type: ${mime}${CRLF}${CRLF}`;
@@ -612,7 +643,7 @@ app.post('/api/replicate/upload', requirePaid, async (req, res) => {
     const footerBuf = Buffer.from(footerPart, 'utf-8');
     const multipartBody = Buffer.concat([headerBuf, buffer, footerBuf]);
 
-    createRes = await fetch('https://api.replicate.com/v1/files', {
+    let createRes = await fetch('https://api.replicate.com/v1/files', {
       method: 'POST',
       headers: {
         'Authorization': apiKey,
