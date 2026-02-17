@@ -731,10 +731,9 @@ app.post('/api/upload-temp', requirePaid, async (req, res) => {
     fs.writeFileSync(filePath, buffer);
     console.log('>>> Temp file saved:', filename, content_type, buffer.length, 'bytes');
 
-    // Build public URL - use the request's host
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.headers['x-forwarded-host'] || req.get('host');
-    const publicUrl = `${protocol}://${host}/tmp-uploads/${filename}`;
+    // Build public URL - must be externally accessible for models like Runway
+    const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://test.nexus-ai-pro.com';
+    const publicUrl = `${PUBLIC_HOST}/tmp-uploads/${filename}`;
 
     res.json({ url: publicUrl, filename });
   } catch (err) {
