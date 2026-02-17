@@ -113,10 +113,10 @@ const SKIN_MODELS = [
   { id: 'zsxkib/ic-light:d41bcb10d8c159868f4cfbd7c6a2ca01484f7d39e4613419d5952c61562f1ba7', name: 'zsxkib/ic-light', desc: '$0.022/image (~₹1.84/image)', nsfw: true, useVersion: true, isICLight: true },
 ];
 const V2V_MODELS = [
-  { id: 'xai/grok-imagine-video', name: 'Grok Imagine Video', desc: '$0.05/sec (~₹4.20/sec)', nsfw: false, isGrokV2V: true },
   { id: 'kwaivgi/kling-o1', name: 'Kling O1', desc: '$0.084-$0.168/sec (~₹7.04-₹14.07/sec)', nsfw: false, isKlingO1: true },
   { id: 'zsxkib/hunyuan-video2video:d550f226f28b1030c2fedd2947f39f19b4b0233b50364904538caaf037fb18d3', name: 'Hunyuan Video2Video', desc: '$0.65/run (~₹54.44/run)', nsfw: false, isHunyuan: true, useVersion: true },
   { id: 'luma/modify-video', name: 'Luma Modify Video', desc: '~$0.42/sec 720p (~₹35.18/sec)', nsfw: false, isLumaModify: true },
+  { id: 'xai/grok-imagine-video', name: 'Grok Imagine Video', desc: '$0.05/sec (~₹4.20/sec)', nsfw: false, isGrokV2V: true },
 ];
 const VIDEOFS_MODELS = [
   { id: 'xrunda/hello:104b4a39315349db50880757bc8c1c996c5309e3aa11286b0a3c84dab81fd440', name: 'Video Face Swap', desc: '~$0.12/run (~₹10.05/run)', price: '$0.12', useVersion: true },
