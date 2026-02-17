@@ -791,7 +791,12 @@ app.get('/api/replicate/predictions/:id', requirePaid, async (req, res) => {
       headers: { 'Authorization': apiKey },
     });
     const data = await resp.json();
-    res.status(resp.status).json(data);
+    // Log failed predictions to help debug model issues
+    if (data.status === 'failed') {
+      console.error('>>> Prediction FAILED:', req.params.id, 'error:', JSON.stringify(data.error).slice(0, 500));
+      if (data.input?.video) console.log('>>> Failed prediction video URL:', typeof data.input.video === 'string' ? data.input.video.slice(0, 200) : 'not-string');
+    }
+    res.json(data);
   } catch (err) {
     console.error('Replicate poll error:', err.message);
     res.status(502).json({ error: 'Failed to poll prediction: ' + err.message });
