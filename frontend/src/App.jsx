@@ -113,7 +113,6 @@ const SKIN_MODELS = [
   { id: 'zsxkib/ic-light:d41bcb10d8c159868f4cfbd7c6a2ca01484f7d39e4613419d5952c61562f1ba7', name: 'zsxkib/ic-light', desc: '$0.022/image (~₹1.84/image)', nsfw: true, useVersion: true, isICLight: true },
 ];
 const V2V_MODELS = [
-  { id: 'runwayml/gen4-aleph', name: 'Runway Gen4 Aleph', desc: '$0.18/sec (~₹15.10/sec)', nsfw: false },
   { id: 'xai/grok-imagine-video', name: 'Grok Imagine Video', desc: '$0.05/sec (~₹4.20/sec)', nsfw: false, isGrokV2V: true },
   { id: 'kwaivgi/kling-o1', name: 'Kling O1', desc: '$0.084-$0.168/sec (~₹7.04-₹14.07/sec)', nsfw: false, isKlingO1: true },
 ];
@@ -2130,25 +2129,18 @@ function App() {
           throw new Error(`Video resolution ${vidEl.videoWidth}x${vidEl.videoHeight} is too low. Kling O1 requires at least 720px in both dimensions.`);
         }
       } else {
-        // Runway Gen4: mp4, max 16MB, max 5s used
-        if (vidSizeMB > 16) throw new Error(`Video is ${vidSizeMB.toFixed(1)}MB. Runway max is 16MB.`);
+        // Default fallback validation
+        if (vidSizeMB > 200) throw new Error(`Video is ${vidSizeMB.toFixed(1)}MB. Max is 200MB.`);
       }
 
-      // Upload video: Runway needs temp URL, Grok and Kling need Replicate URL
+      // Upload video: all V2V models use Replicate upload
+      updateJob(jobId, { status: 'Uploading video...' });
+      const videoUrl = await uploadToReplicate(v2vVideo, vidType || 'video/mp4');
       let input;
-      if (modelObj?.isGrokV2V || modelObj?.isKlingO1) {
-        updateJob(jobId, { status: 'Uploading video...' });
-        const videoUrl = await uploadToReplicate(v2vVideo, vidType || 'video/mp4');
-        if (modelObj?.isGrokV2V) {
-          input = { prompt: v2vPrompt, video: videoUrl };
-        } else {
-          input = { prompt: v2vPrompt, reference_video: videoUrl, video_reference_type: 'base', mode: 'pro' };
-        }
-      } else {
-        // Runway Gen4: upload to temp server (serves with correct Content-Type: video/mp4)
-        updateJob(jobId, { status: 'Uploading video...' });
-        const videoUrl = await uploadToTemp(v2vVideo, 'video/mp4');
+      if (modelObj?.isGrokV2V) {
         input = { prompt: v2vPrompt, video: videoUrl };
+      } else {
+        input = { prompt: v2vPrompt, reference_video: videoUrl, video_reference_type: 'base', mode: 'pro' };
       }
       updateJob(jobId, { status: 'Editing video...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
@@ -3011,7 +3003,7 @@ function App() {
           <div>
             <ModelSelector models={V2V_MODELS} value={v2vModel} onChange={v => setV2vModel(v)} />
             <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
-            {v2vVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={v2vVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setV2vVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to edit<br/><span style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>{V2V_MODELS.find(m => m.id === v2vModel)?.isGrokV2V ? 'MP4, MOV, WebM • Max 8.7s' : V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'MP4, MOV • 3-10s • Max 200MB • Min 720p' : 'MP4 • Max 16MB • Only first 5s used'}</span><input type="file" accept={V2V_MODELS.find(m => m.id === v2vModel)?.isGrokV2V ? 'video/mp4,video/quicktime,video/webm' : V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'video/mp4,video/quicktime' : 'video/mp4'} onChange={e => { const f = e.target.files?.[0]; if (f) setV2vVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
+            {v2vVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={v2vVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setV2vVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to edit<br/><span style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>{V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'MP4, MOV • 3-10s • Max 200MB • Min 720p' : 'MP4, MOV, WebM • Max 8.7s'}</span><input type="file" accept={V2V_MODELS.find(m => m.id === v2vModel)?.isGrokV2V ? 'video/mp4,video/quicktime,video/webm' : V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'video/mp4,video/quicktime' : 'video/mp4'} onChange={e => { const f = e.target.files?.[0]; if (f) setV2vVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
             <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Edit Prompt</label><textarea value={v2vPrompt} onChange={e => setV2vPrompt(e.target.value)} placeholder="Describe how to transform the video..." rows={3} style={{ ...S.input, width: '100%', resize: 'vertical' }} /></div>
             <button onClick={generateV2V} disabled={loading} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: loading ? 0.6 : 1 }}>{loading ? (tabJobs[0]?.status || 'Processing...') : 'Edit Video'}</button>
           </div>
