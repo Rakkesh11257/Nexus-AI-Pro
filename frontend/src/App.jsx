@@ -5,14 +5,14 @@ import ToolScreen from './screens/ToolScreen.jsx';
 
 const API_BASE = window.location.origin;
 
-// ??? Model Logo Helper ???
+// ─── Model Logo Helper ───
 const getModelLogo = (modelId) => {
   const baseId = modelId.split(':')[0];
   const filename = baseId.replace('/', ':');
   return `/samples/models/${filename}.png`;
 };
 
-// ??? Custom Model Selector with Logos ???
+// ─── Custom Model Selector with Logos ───
 const ModelSelector = ({ models, value, onChange, extraOptions, style }) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
@@ -1220,7 +1220,7 @@ function App() {
     return result.url;
   };
 
-  // ─── Helper: upload file to temp server storage (serves with correct Content-Type for Runway etc.) ───
+  // ─── Helper: upload file to temp server storage (serves with correct Content-Type) ───
   const uploadToTemp = async (blobOrDataUri, contentType = 'video/mp4') => {
     const dataUri = blobOrDataUri.startsWith('blob:') ? await toDataUri(blobOrDataUri) : blobOrDataUri;
     const res = await fetch(`${API_BASE}/api/upload-temp`, {

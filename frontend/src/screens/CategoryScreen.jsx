@@ -36,7 +36,7 @@ const CATEGORY_TOOLS = {
       { id: 'animate-image-v', label: 'Animate Image', media: '/samples/animate-image.gif', tab: 'i2v' },
       { id: 'motion-sync', label: 'Motion Sync', media: '/samples/motion-sync.gif', tab: 'motion' },
       { id: 'video-face-swap', label: 'Video Face Swap', desc: 'Swap faces in videos', media: '/samples/face-swap-video.gif', tab: 'videofs' },
-      { id: 'video-enhance', label: 'Replace Character', desc: 'Replace characters in videos with AI', media: '/samples/replace-character.gif', tab: 'replacechar' },
+      { id: 'replace-character', label: 'Replace Character', desc: 'Replace characters in videos with AI', media: '/samples/replace-character.gif', tab: 'replacechar' },
     ],
   },
   audio: {
