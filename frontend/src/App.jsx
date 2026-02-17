@@ -2248,7 +2248,7 @@ function App() {
       const videoUrl = await uploadToReplicate(replacecharVideo, 'video/mp4');
       updateJob(jobId, { status: 'Uploading character image...' });
       const imageUrl = await uploadToReplicate(replacecharImage, 'image/png');
-      let input = { video: videoUrl, character_image: imageUrl, resolution: '720', go_fast: false, merge_audio: true };
+      let input = { video: videoUrl, character_image: imageUrl, resolution: '720', go_fast: false, merge_audio: false };
       updateJob(jobId, { status: 'Replacing character...' });
       const reqBody = modelObj?.useVersion && replacecharModel.includes(':') ? { version: replacecharModel.split(':')[1], input } : { model: replacecharModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
