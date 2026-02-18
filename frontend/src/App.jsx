@@ -13,7 +13,7 @@ const getModelLogo = (modelId) => {
 };
 
 // ─── Custom Model Selector with Logos ───
-const ModelSelector = ({ models, value, onChange, extraOptions, style }) => {
+const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan, onLockedClick }) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const selected = models.find(m => m.id === value);
@@ -52,25 +52,30 @@ const ModelSelector = ({ models, value, onChange, extraOptions, style }) => {
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)', maxHeight: 320, overflowY: 'auto',
           scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.15) transparent'
         }}>
-          {models.map(m => (
-            <div key={m.id} onClick={() => { onChange(m.id); setOpen(false); }}
+          {models.map(m => {
+            const locked = userPlan === 'monthly' && isYearlyOnlyModel(m.id);
+            return (
+            <div key={m.id} onClick={() => { if (locked) { onLockedClick?.(); setOpen(false); return; } onChange(m.id); setOpen(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                cursor: 'pointer', transition: 'background 0.15s',
+                cursor: locked ? 'not-allowed' : 'pointer', transition: 'background 0.15s',
                 background: m.id === value ? 'rgba(34,212,123,0.1)' : 'transparent',
                 borderLeft: m.id === value ? '3px solid #22d47b' : '3px solid transparent',
+                opacity: locked ? 0.5 : 1,
               }}
-              onMouseEnter={e => { if (m.id !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+              onMouseEnter={e => { if (m.id !== value) e.currentTarget.style.background = locked ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)'; }}
               onMouseLeave={e => { if (m.id !== value) e.currentTarget.style.background = 'transparent'; }}
             >
               <img src={getModelLogo(m.id)} alt='' style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{m.name}</div>
+                <div style={{ color: locked ? '#888' : '#fff', fontSize: 13, fontWeight: 500 }}>{m.name}</div>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{m.desc}</div>
               </div>
-              {m.id === value && <span style={{ color: '#22d47b', fontSize: 14 }}>?</span>}
+              {locked && <span style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)', whiteSpace: 'nowrap' }}>🔒 Yearly</span>}
+              {!locked && m.id === value && <span style={{ color: '#22d47b', fontSize: 14 }}>✓</span>}
             </div>
-          ))}
+            );
+          })}
           {extraOptions}
         </div>
       )}
@@ -198,6 +203,17 @@ const VOICECLONE_MODELS = [
   { id: 'resemble-ai/chatterbox', name: 'Chatterbox', desc: '$0.025/1K chars (~\u20b92.09/1K chars)', isChatterbox: true },
   { id: 'minimax/voice-cloning', name: 'MiniMax Voice Clone', desc: '$3.00/clone (~\u20b9251.25/clone)', isMiniMaxClone: true },
 ];
+// Models restricted to yearly/lifetime subscribers only
+const YEARLY_ONLY_MODELS = [
+  'wan-video/wan-2.2-i2v-fast',
+  'wan-video/wan-2.5-i2v',
+  'wan-video/wan-2.5-i2v-fast',
+  'wan-video/wan-2.2-t2v-fast',
+  'wan-video/wan-2.5-t2v',
+  'wan-video/wan-2.5-t2v-fast',
+  'sdxl-based/consistent-character:9c77a3c2f884193fcee4d89645f02a0b9def9434f9e03cb98460456b831c8772',
+];
+const isYearlyOnlyModel = (modelId) => YEARLY_ONLY_MODELS.some(m => modelId.startsWith(m.split(':')[0]) || modelId === m);
 // Transcribe models
 const TRANSCRIBE_MODELS = [
   { id: 'openai/gpt-4o-transcribe', name: 'GPT-4o Transcribe', desc: 'OpenAI latest transcription',
@@ -595,6 +611,100 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
   );
 }
 
+// ─── Upgrade Modal (Monthly → Yearly) ───
+function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const handleUpgrade = async () => {
+    setError(''); setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/payment/create-upgrade-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to create upgrade order');
+      const order = await res.json();
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'NEXUS AI Pro',
+        description: 'Upgrade to Yearly Plan',
+        prefill: { email: user?.email || '' },
+        theme: { color: '#f59e0b' },
+        modal: { ondismiss: () => setLoading(false) },
+        handler: async function (response) {
+          try {
+            const verifyRes = await fetch(`${API_BASE}/api/payment/verify-upgrade`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const result = await verifyRes.json();
+            if (result.success) {
+              onUpgradeSuccess();
+            } else {
+              setError(result.error || 'Verification failed');
+            }
+          } catch (err) {
+            setError('Upgrade verification failed. Please contact support.');
+          }
+        },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp) => {
+        setError(resp.error?.description || 'Payment failed. Please try again.');
+        setLoading(false);
+      });
+      rzp.open();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+  return (
+    <div style={S.overlay} onClick={onClose}>
+      <div style={{ ...S.card, maxWidth: 460, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={S.closeBtn}>✕</button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>⭐</div>
+          <h2 style={{ margin: '0 0 4px', fontSize: 22 }}>Upgrade to Yearly</h2>
+          <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>Unlock premium models with yearly access</p>
+          {error && <div style={{ ...S.errorBox, marginBottom: 16 }}>{error}</div>}
+          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, color: '#f59e0b', fontWeight: 600, marginBottom: 10 }}>🔓 Premium Models Include:</div>
+            <div style={{ textAlign: 'left' }}>
+              {['Wan 2.2 & 2.5 Image-to-Video', 'Wan 2.2 & 2.5 Text-to-Video', 'Consistent Character generation', 'Custom model training (LoRA)'].map(f => (
+                <div key={f} style={{ padding: '5px 0', color: '#ccc', fontSize: 13 }}>
+                  <span style={{ color: '#f59e0b', marginRight: 8 }}>✓</span>{f}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ background: '#0d0d1a', borderRadius: 12, padding: 16, marginBottom: 16, border: '2px solid #f59e0b' }}>
+            <div style={{ fontSize: 14, color: '#888', textDecoration: 'line-through', marginBottom: 2 }}>₹9,999/year</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>₹2,500</div>
+            <div style={{ fontSize: 13, color: '#888' }}>One-time upgrade fee</div>
+            <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>Then ₹2,999/year auto-renewal</div>
+          </div>
+          <button onClick={handleUpgrade} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, fontSize: 16, padding: 16, background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+            {loading ? 'Processing...' : 'Upgrade Now → ₹2,500'}
+          </button>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+            {['🔒 Secure Payment', '💳 UPI/Cards/Netbanking', '⚡ Instant Access'].map(t => (
+              <span key={t} style={{ fontSize: 11, color: '#666' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 // ─── Settings Modal ───
 function SettingsModal({ apiKey, onSave, onClose }) {
   const [key, setKey] = useState(apiKey);
@@ -842,6 +952,7 @@ function App() {
   const [trainHistory, setTrainHistory] = useState([]);
   const [trainPolling, setTrainPolling] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('replicate_api_key') || '');
   const [history, setHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('nexus_history')) || { images: [], videos: [] }; } catch { return { images: [], videos: [] }; }
@@ -1056,6 +1167,7 @@ function App() {
 
   // ─── Generate Image to Image ───
   const generateI2I = async () => {
+    if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(i2iModel)) { setShowUpgrade(true); return; }
     if (!i2iPrompt.trim()) return setError('Enter a prompt');
     if (!i2iImage) return setError('Upload a source image');
     if (!canGenerate()) return;
@@ -1326,6 +1438,7 @@ function App() {
 
   // ─── Generate I2V ───
   const generateI2V = async () => {
+    if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(i2vModel)) { setShowUpgrade(true); return; }
     if (!i2vImage) return setError('Upload a source image');
     if (!canGenerate()) return;
     const modelCfg = I2V_MODELS.find(m => m.id === i2vModel);
@@ -1362,6 +1475,7 @@ function App() {
 
   // ─── Generate T2V ───
   const generateT2V = async () => {
+    if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(t2vModel)) { setShowUpgrade(true); return; }
     if (!t2vPrompt.trim()) return setError('Enter a prompt');
     if (!canGenerate()) return;
     const modelCfg = T2V_MODELS.find(m => m.id === t2vModel);
@@ -1864,6 +1978,7 @@ function App() {
   };
 
   const startTraining = async () => {
+    if (user?.paymentPlan === 'monthly') { setShowUpgrade(true); return; }
     if (!canGenerate()) return;
     if (trainImages.length < 5) { setError('Please upload at least 5 images for training.'); return; }
     if (!trainTrigger.trim()) { setError('Please enter a trigger word.'); return; }
@@ -2493,7 +2608,7 @@ function App() {
         {/* ══ IMAGE TO IMAGE TAB ══ */}
         {tab === 'i2i' && (
           <div>
-            <ModelSelector models={I2I_MODELS} value={i2iModel} onChange={v => setI2iModel(v)} />
+            <ModelSelector models={I2I_MODELS} value={i2iModel} onChange={v => setI2iModel(v)} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} />
 
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>Source Image</label>
@@ -2540,7 +2655,7 @@ function App() {
         {/* ══ IMAGE TO VIDEO TAB ══ */}
         {tab === 'i2v' && (
           <div>
-            <ModelSelector models={I2V_MODELS} value={i2vModel} onChange={v => { setI2vModel(v); setI2vOpts({}); }} />
+            <ModelSelector models={I2V_MODELS} value={i2vModel} onChange={v => { setI2vModel(v); setI2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} />
 
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>Source Image (Start Frame)</label>
@@ -2590,7 +2705,7 @@ function App() {
         {/* ══ TEXT TO VIDEO TAB ══ */}
         {tab === 't2v' && (
           <div>
-            <ModelSelector models={T2V_MODELS} value={t2vModel} onChange={v => { setT2vModel(v); setT2vOpts({}); }} />
+            <ModelSelector models={T2V_MODELS} value={t2vModel} onChange={v => { setT2vModel(v); setT2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} />
 
             <textarea style={{ ...S.input, minHeight: 80, marginBottom: 12 }} placeholder="Describe the video you want to create..." value={t2vPrompt} onChange={e => setT2vPrompt(e.target.value)} />
 
@@ -3076,6 +3191,13 @@ function App() {
         {/* ══ TRAIN TAB ══ */}
         {tab === 'train' && (
           <div>
+            {user?.paymentPlan === 'monthly' && (
+              <div onClick={() => setShowUpgrade(true)} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: 16, marginBottom: 16, textAlign: 'center', cursor: 'pointer' }}>
+                <div style={{ fontSize: 32, marginBottom: 6 }}>🔒</div>
+                <div style={{ color: '#f59e0b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Yearly Plan Required</div>
+                <div style={{ color: '#888', fontSize: 13 }}>Custom model training is available on the Yearly plan. Tap here to upgrade for ₹2,500.</div>
+              </div>
+            )}
             <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
               🧪 <strong style={{ color: '#fff' }}>Train Your Own LoRA Model</strong> — Upload 10-20 images of a subject (person, style, object), set a trigger word, and train a custom FLUX LoRA model. Training takes ~5-10 minutes using Replicate's fast trainer and costs ~$1-3 on your Replicate account.
             </div>
@@ -3306,6 +3428,7 @@ function App() {
 
       {/* Modals */}
       {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} accessToken={accessToken} user={user} onPaymentSuccess={(plan) => { setUser(prev => ({ ...prev, isPaid: true, paymentPlan: plan })); setShowPaywall(false); }} />}
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} accessToken={accessToken} user={user} onUpgradeSuccess={() => { setUser(prev => ({ ...prev, paymentPlan: 'yearly' })); setShowUpgrade(false); }} />}
       {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} />}
       {viewerItem && <ViewerModal item={viewerItem} onClose={() => setViewerItem(null)} onUseForVideo={useForVideo} onDelete={(item) => { setResults(prev => prev.filter(r => r !== item)); setViewerItem(null); }} />}
     </div>

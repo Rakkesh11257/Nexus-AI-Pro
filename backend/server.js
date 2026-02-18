@@ -601,6 +601,82 @@ app.post('/api/payment/cancel-subscription', verifyToken, async (req, res) => {
   }
 });
 
+// Upgrade Monthly to Yearly
+const UPGRADE_PRICE = 250000; // Rs 2500 in paise
+app.post('/api/payment/create-upgrade-order', verifyToken, async (req, res) => {
+  try {
+    // Verify user is currently monthly
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+    if (!dbResult.Item || dbResult.Item.paymentPlan !== 'monthly') {
+      return res.status(400).json({ error: 'Upgrade is only available for monthly subscribers.' });
+    }
+    const receiptId = `nxs_upg_${Date.now()}`;
+    const order = await razorpay.orders.create({
+      amount: UPGRADE_PRICE,
+      currency: 'INR',
+      receipt: receiptId,
+      notes: { userId: req.user.sub, email: req.user.email, type: 'upgrade_to_yearly' },
+    });
+    res.json({
+      type: 'order',
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: RAZORPAY_KEY_ID,
+    });
+  } catch (err) {
+    console.error('Upgrade order error:', err.error || err.message || err);
+    res.status(500).json({ error: 'Failed to create upgrade order.' });
+  }
+});
+
+app.post('/api/payment/verify-upgrade', verifyToken, async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const expectedSignature = crypto
+    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+  if (expectedSignature !== razorpay_signature) {
+    return res.status(400).json({ error: 'Payment verification failed.' });
+  }
+  try {
+    // 1. Cancel existing monthly subscription
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+    const oldSubId = dbResult.Item?.razorpaySubscriptionId;
+    if (oldSubId) {
+      try { await razorpay.subscriptions.cancel(oldSubId); } catch (e) { console.log('Old sub cancel:', e.message); }
+    }
+    // 2. Create new yearly subscription
+    if (!YEARLY_PLAN_ID) throw new Error('Yearly plan not configured');
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: YEARLY_PLAN_ID,
+      total_count: 10,
+      quantity: 1,
+      customer_notify: 1,
+      notes: { userId: req.user.sub, email: req.user.email, plan: 'yearly' },
+    });
+    // 3. Update DynamoDB
+    const now = new Date();
+    const subEnd = new Date(now);
+    subEnd.setFullYear(subEnd.getFullYear() + 1);
+    await dynamoClient.send(new UpdateCommand({
+      TableName: DYNAMO_TABLE,
+      Key: { userId: req.user.sub },
+      UpdateExpression: 'SET isPaid = :paid, paymentId = :pid, paymentPlan = :plan, paidAt = :now, razorpaySubscriptionId = :subId, subscriptionEnd = :subEnd, subscriptionStatus = :status, upgradedFromMonthly = :upgraded',
+      ExpressionAttributeValues: {
+        ':paid': true, ':pid': razorpay_payment_id, ':plan': 'yearly',
+        ':now': now.toISOString(), ':subId': subscription.id,
+        ':subEnd': subEnd.toISOString(), ':status': 'active', ':upgraded': true,
+      },
+    }));
+    console.log('Upgrade verified:', req.user.email, 'monthly -> yearly', razorpay_payment_id);
+    res.json({ success: true, message: 'Upgraded to Yearly!', isPaid: true, plan: 'yearly', subscriptionId: subscription.id });
+  } catch (err) {
+    console.error('Upgrade activation error:', err);
+    res.status(500).json({ error: 'Payment verified but upgrade failed. Contact support.' });
+  }
+});
+
 // ============================================
 // REPLICATE API RELAY (paid users only)
 // ============================================
