@@ -589,9 +589,25 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
 
           {/* Features */}
           <div style={{ textAlign: 'left', marginBottom: 20 }}>
-            {['All FLUX image models (Schnell, Dev, 1.1 Pro)', 'Wan 2.2 & Wavespeed video generation', 'MiniMax Video-01 text-to-video', 'Train your own AI model with LoRA', 'Unlimited generations with your API key', selectedPlan === 'yearly' ? '365-day access, cancel anytime' : '30-day access, cancel anytime', 'Prices may increase in future — lock in now!'].map(f => (
-              <div key={f} style={{ padding: '7px 0', borderBottom: '1px solid #1f2937', color: '#ccc', fontSize: 13 }}>
-                <span style={{ color: '#4ade80', marginRight: 8 }}>✓</span>{f}
+            {(selectedPlan === 'yearly' ? [
+              'All AI models (Image, Video, Audio, Chat)',
+              'Wan 2.2 & 2.5 video generation models',
+              'NSFW-capable models (SDXL, Wan, etc.)',
+              'Train your own AI model with LoRA',
+              'Unlimited generations with your API key',
+              '365-day access, cancel anytime',
+              'Prices may increase in future — lock in now!',
+            ] : [
+              'All basic AI models (Image, Video, Audio, Chat)',
+              'Limited video models (no Wan 2.2/2.5)',
+              'No access to NSFW models',
+              'No custom LoRA model training',
+              'Unlimited generations with your API key',
+              '30-day access, cancel anytime',
+              'Upgrade to Yearly anytime for full access',
+            ]).map(f => (
+              <div key={f} style={{ padding: '7px 0', borderBottom: '1px solid #1f2937', color: f.startsWith('No ') || f.startsWith('Limited ') ? '#888' : '#ccc', fontSize: 13 }}>
+                <span style={{ color: f.startsWith('No ') || f.startsWith('Limited ') ? '#f87171' : '#4ade80', marginRight: 8 }}>{f.startsWith('No ') || f.startsWith('Limited ') ? '✗' : '✓'}</span>{f}
               </div>
             ))}
           </div>
