@@ -80,8 +80,8 @@ const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: AW
 // ============================================
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_live_SCpCGFak928F7f';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sAaMXrCyXwMAVxIHfqgaQFA1';
-const PLAN_YEARLY_PRICE = 299900;   // Rs 2999 in paise
-const PLAN_MONTHLY_PRICE = 49900;   // Rs 499 in paise
+const PLAN_YEARLY_PRICE = 500;      // Rs 5 in paise (TEST - change back to 299900)
+const PLAN_MONTHLY_PRICE = 100;     // Rs 1 in paise (TEST - change back to 49900)
 
 const razorpay = new Razorpay({
   key_id: RAZORPAY_KEY_ID,
@@ -602,7 +602,7 @@ app.post('/api/payment/cancel-subscription', verifyToken, async (req, res) => {
 });
 
 // Upgrade Monthly to Yearly
-const UPGRADE_PRICE = 250000; // Rs 2500 in paise
+const UPGRADE_PRICE = 400;    // Rs 4 in paise (TEST - change back to 250000)
 app.post('/api/payment/create-upgrade-order', verifyToken, async (req, res) => {
   try {
     // Verify user is currently monthly

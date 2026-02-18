@@ -482,8 +482,8 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
   const [error, setError] = useState('');
 
   const plans = [
-    { id: 'yearly', name: 'Yearly', price: '₹2,999', originalPrice: '₹9,999', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
-    { id: 'monthly', name: 'Monthly', price: '₹499', originalPrice: '₹999', priceNum: 499, desc: 'Per month', badge: null },
+    { id: 'yearly', name: 'Yearly', price: '₹5', originalPrice: '₹9,999', priceNum: 5, desc: 'Per year', badge: 'BEST VALUE' },
+    { id: 'monthly', name: 'Monthly', price: '₹1', originalPrice: '₹999', priceNum: 1, desc: 'Per month', badge: null },
   ];
 
   const handlePayment = async () => {
@@ -734,12 +734,12 @@ function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
           </div>
           <div style={{ background: '#0d0d1a', borderRadius: 12, padding: 16, marginBottom: 16, border: '2px solid #f59e0b' }}>
             <div style={{ fontSize: 14, color: '#888', textDecoration: 'line-through', marginBottom: 2 }}>₹9,999/year</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>₹2,500</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>₹4</div>
             <div style={{ fontSize: 13, color: '#888' }}>One-time upgrade fee</div>
-            <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>Then ₹2,999/year auto-renewal</div>
+            <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>Then ₹5/year auto-renewal</div>
           </div>
           <button onClick={handleUpgrade} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, fontSize: 16, padding: 16, background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-            {loading ? 'Processing...' : 'Upgrade Now → ₹2,500'}
+            {loading ? 'Processing...' : 'Upgrade Now → ₹4'}
           </button>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
             {['🔒 Secure Payment', '💳 UPI/Cards/Netbanking', '⚡ Instant Access'].map(t => (
@@ -3241,7 +3241,7 @@ function App() {
               <div onClick={() => setShowUpgrade(true)} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: 16, marginBottom: 16, textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 32, marginBottom: 6 }}>🔒</div>
                 <div style={{ color: '#f59e0b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Yearly Plan Required</div>
-                <div style={{ color: '#888', fontSize: 13 }}>Custom model training is available on the Yearly plan. Tap here to upgrade for ₹2,500.</div>
+                <div style={{ color: '#888', fontSize: 13 }}>Custom model training is available on the Yearly plan. Tap here to upgrade for ₹4.</div>
               </div>
             )}
             <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
