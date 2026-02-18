@@ -594,7 +594,7 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
               'Wan 2.2 & 2.5 video generation models',
               'NSFW-capable models (SDXL, Wan, etc.)',
               'Train your own AI model with LoRA',
-              'Unlimited generations with your API key',
+              'Unlimited generations',
               '365-day access, cancel anytime',
               'Prices may increase in future — lock in now!',
             ] : [
@@ -602,7 +602,7 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
               'Limited video models (no Wan 2.2/2.5)',
               'No access to NSFW models',
               'No custom LoRA model training',
-              'Unlimited generations with your API key',
+              'Unlimited generations',
               '30-day access, cancel anytime',
               'Upgrade to Yearly anytime for full access',
             ]).map(f => (
