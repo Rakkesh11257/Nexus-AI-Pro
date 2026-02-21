@@ -36,8 +36,9 @@ const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan,
         {selected && <img src={getModelLogo(selected.id)} alt='' style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} onError={e => { e.target.style.display = 'none'; }} />}
         {isTrainedModel && <span style={{ fontSize: 20, flexShrink: 0 }}>?</span>}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: '#fff', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {selected ? selected.name : value}
+          <div style={{ color: '#fff', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>{selected ? selected.name : value}</span>
+            {showNsfwBadge && selected?.nsfw && <span style={{ fontSize: 10, color: '#f472b6', background: 'rgba(244,114,182,0.1)', padding: '2px 7px', borderRadius: 8, border: '1px solid rgba(244,114,182,0.2)', fontWeight: 600, letterSpacing: '0.03em', flexShrink: 0 }}>18+</span>}
           </div>
           {selected && <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 1 }}>{selected.desc}</div>}
         </div>
