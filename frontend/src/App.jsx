@@ -1260,6 +1260,12 @@ function App() {
     // Seconds (Sora)
     if (opts.seconds != null) params.seconds = opts.seconds;
     else if (Array.isArray(p.seconds)) params.seconds = p.seconds[0];
+    // num_frames → approximate duration (at ~16fps default)
+    if (!params.duration && p.num_frames) {
+      const frames = opts.num_frames || p.num_frames?.default || 81;
+      const fps = opts.fps || p.fps?.default || 16;
+      params.duration = Math.round(frames / fps);
+    }
     return params;
   };
 
