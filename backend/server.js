@@ -222,6 +222,9 @@ const CREDIT_COSTS = {
   'openai/gpt-4o-transcribe': { type: 'fixed', credits: 41 },            // ~$0.06/run (4x)
   'openai/whisper': { type: 'fixed', credits: 5 },                       // $0.007/run
 
+  // ── TRAINING (fixed, 2x – Replicate charges ~$3-5 per training) ──
+  'replicate/fast-flux-trainer': { type: 'fixed', credits: 500 },        // ~$3 avg (2x)
+
   // ── CHAT (flat 2 cr per message) ──
   'openai/gpt-5': { type: 'fixed', credits: 2 },
   'anthropic/claude-4-sonnet': { type: 'fixed', credits: 2 },
@@ -1539,7 +1542,7 @@ app.get('/api/replicate/predictions/:id', requireAccess, async (req, res) => {
 // ============================================
 
 // Get user's trained models
-app.get('/api/trained-models', requirePaid, async (req, res) => {
+app.get('/api/trained-models', verifyToken, async (req, res) => {
   try {
     const authHeader = req.headers['x-auth-token'];
     const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
@@ -1553,7 +1556,7 @@ app.get('/api/trained-models', requirePaid, async (req, res) => {
 });
 
 // Save a trained model
-app.post('/api/trained-models', requirePaid, async (req, res) => {
+app.post('/api/trained-models', verifyToken, async (req, res) => {
   try {
     const authHeader = req.headers['x-auth-token'];
     const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
@@ -1583,7 +1586,7 @@ app.post('/api/trained-models', requirePaid, async (req, res) => {
 });
 
 // Delete a trained model
-app.delete('/api/trained-models/:name', requirePaid, async (req, res) => {
+app.delete('/api/trained-models/:name', verifyToken, async (req, res) => {
   try {
     const authHeader = req.headers['x-auth-token'];
     const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authHeader }));
@@ -1605,6 +1608,205 @@ app.delete('/api/trained-models/:name', requirePaid, async (req, res) => {
   } catch (err) {
     console.error('Delete trained model error:', err.message);
     res.status(500).json({ error: 'Failed to delete trained model' });
+  }
+});
+
+
+// ============================================
+// CREDIT-MODE TRAINING API
+// ============================================
+
+// POST /api/credits/train - Start training using server key + credits
+app.post('/api/credits/train', verifyToken, async (req, res) => {
+  try {
+    const sub = req.user.sub;
+    const { modelName, triggerWord, training_steps, zipData } = req.body;
+
+    if (!modelName || !triggerWord) {
+      return res.status(400).json({ error: 'Missing required fields: modelName, triggerWord' });
+    }
+    if (!zipData) {
+      return res.status(400).json({ error: 'Missing training images (zipData)' });
+    }
+    if (!SERVER_REPLICATE_API_TOKEN) {
+      return res.status(503).json({ error: 'Credit mode training is not available.' });
+    }
+
+    // 1. Deduct credits atomically (500 cr)
+    const TRAIN_COST = getCreditCost('replicate/fast-flux-trainer');
+    let remainingCredits;
+    try {
+      const deductResult = await dynamoClient.send(new UpdateCommand({
+        TableName: DYNAMO_TABLE,
+        Key: { userId: sub },
+        UpdateExpression: 'SET credits = credits - :cost',
+        ConditionExpression: 'credits >= :cost',
+        ExpressionAttributeValues: { ':cost': TRAIN_COST },
+        ReturnValues: 'ALL_NEW',
+      }));
+      remainingCredits = deductResult.Attributes?.credits ?? 0;
+      console.log(`[CreditTrain] Deducted ${TRAIN_COST} credits from ${sub}. Remaining: ${remainingCredits}`);
+    } catch (deductErr) {
+      if (deductErr.name === 'ConditionalCheckFailedException') {
+        const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: sub } }));
+        return res.status(402).json({
+          error: `Insufficient credits. Training requires ${TRAIN_COST} credits.`,
+          required: TRAIN_COST,
+          current: dbResult.Item?.credits || 0,
+        });
+      }
+      throw deductErr;
+    }
+
+    // Helper to refund credits on failure
+    const refund = async () => {
+      await dynamoClient.send(new UpdateCommand({
+        TableName: DYNAMO_TABLE, Key: { userId: sub },
+        UpdateExpression: 'SET credits = credits + :cost',
+        ExpressionAttributeValues: { ':cost': TRAIN_COST },
+      }));
+      console.log(`[CreditTrain] Refunded ${TRAIN_COST} credits to ${sub}`);
+    };
+
+    const serverKey = `Bearer ${SERVER_REPLICATE_API_TOKEN}`;
+
+    // 2. Get server's Replicate username
+    const acctResp = await fetch('https://api.replicate.com/v1/account', {
+      headers: { 'Authorization': serverKey },
+    });
+    if (!acctResp.ok) {
+      await refund();
+      return res.status(502).json({ error: 'Failed to get server account info' });
+    }
+    const acctData = await acctResp.json();
+    const serverUsername = acctData.username;
+
+    // 3. Create unique model slug: user-hash + modelName
+    const userHash = sub.replace(/-/g, '').substring(0, 8);
+    const slug = `${userHash}-${modelName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-')}`;
+    const destination = `${serverUsername}/${slug}`;
+
+    // 4. Create model on our account
+    const modelResp = await fetch('https://api.replicate.com/v1/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': serverKey },
+      body: JSON.stringify({
+        owner: serverUsername, name: slug, visibility: 'private',
+        hardware: 'gpu-t4',
+        description: `NEXUS AI Pro trained LoRA - user ${userHash}`,
+      }),
+    });
+    if (!modelResp.ok && modelResp.status !== 409) {
+      const modelErr = await modelResp.json().catch(() => ({}));
+      await refund();
+      return res.status(502).json({ error: modelErr.detail || 'Failed to create model' });
+    }
+    console.log(`[CreditTrain] Model destination: ${destination}`);
+
+    // 5. Upload training images zip
+    const base64 = zipData.includes(',') ? zipData.split(',')[1] : zipData;
+    const buffer = Buffer.from(base64, 'base64');
+
+    const createUrlRes = await fetch('https://api.replicate.com/v1/files/upload', {
+      method: 'POST',
+      headers: { 'Authorization': serverKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'training_images.zip', content_type: 'application/zip' }),
+    });
+    if (!createUrlRes.ok) {
+      await refund();
+      return res.status(502).json({ error: 'Failed to create upload URL' });
+    }
+    const createUrlData = await createUrlRes.json();
+
+    const putResp = await fetch(createUrlData.upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/zip' },
+      body: buffer,
+    });
+    if (!putResp.ok) {
+      await refund();
+      return res.status(502).json({ error: 'Failed to upload training images' });
+    }
+    const imageUrl = createUrlData.serving_url || createUrlData.urls?.get;
+    console.log(`[CreditTrain] Images uploaded: ${imageUrl}`);
+
+    // 6. Start training
+    const trainUrl = 'https://api.replicate.com/v1/models/replicate/fast-flux-trainer/versions/f463fbfc97389e10a2f443a8a84b6953b1058eafbf0c9af4d84457ff07cb04db/trainings';
+    const trainResp = await fetch(trainUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': serverKey },
+      body: JSON.stringify({
+        input: {
+          input_images: imageUrl,
+          trigger_word: triggerWord.trim(),
+          training_steps: training_steps || 1000,
+        },
+        destination,
+      }),
+    });
+    const trainData = await trainResp.json();
+    if (!trainResp.ok) {
+      await refund();
+      return res.status(502).json({ error: trainData.detail || 'Failed to start training' });
+    }
+
+    console.log(`[CreditTrain] Training started: ${trainData.id} for ${sub}`);
+    res.json({
+      id: trainData.id,
+      status: trainData.status,
+      destination,
+      credits: remainingCredits,
+      cost: TRAIN_COST,
+    });
+  } catch (err) {
+    console.error('[CreditTrain] Error:', err.message);
+    res.status(500).json({ error: 'Training failed: ' + err.message });
+  }
+});
+
+// GET /api/credits/train/:id - Poll training status (uses server key)
+app.get('/api/credits/train/:id', verifyToken, async (req, res) => {
+  try {
+    if (!SERVER_REPLICATE_API_TOKEN) {
+      return res.status(503).json({ error: 'Credit mode not available' });
+    }
+    const resp = await fetch(`https://api.replicate.com/v1/trainings/${req.params.id}`, {
+      headers: { 'Authorization': `Bearer ${SERVER_REPLICATE_API_TOKEN}` },
+    });
+    const data = await resp.json();
+    res.status(resp.status).json(data);
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to poll training' });
+  }
+});
+
+// POST /api/credits/train/:id/cancel - Cancel training + refund credits
+app.post('/api/credits/train/:id/cancel', verifyToken, async (req, res) => {
+  try {
+    if (!SERVER_REPLICATE_API_TOKEN) {
+      return res.status(503).json({ error: 'Credit mode not available' });
+    }
+    const resp = await fetch(`https://api.replicate.com/v1/trainings/${req.params.id}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${SERVER_REPLICATE_API_TOKEN}` },
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      const TRAIN_COST = getCreditCost('replicate/fast-flux-trainer');
+      const refundResult = await dynamoClient.send(new UpdateCommand({
+        TableName: DYNAMO_TABLE,
+        Key: { userId: req.user.sub },
+        UpdateExpression: 'SET credits = credits + :cost',
+        ExpressionAttributeValues: { ':cost': TRAIN_COST },
+        ReturnValues: 'ALL_NEW',
+      }));
+      console.log(`[CreditTrain] Cancelled & refunded ${TRAIN_COST} credits for ${req.user.sub}`);
+      data._creditsRefunded = TRAIN_COST;
+      data._remainingCredits = refundResult.Attributes?.credits ?? 0;
+    }
+    res.status(resp.status).json(data);
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to cancel training' });
   }
 });
 

@@ -2263,140 +2263,148 @@ function App() {
   };
 
   const startTraining = async () => {
-    if (user?.paymentPlan === 'monthly') { setShowUpgrade(true); return; }
-    if (!await canGenerate()) return;
+    // Developer mode: monthly plan blocks training (yearly only)
+    if (isDeveloperMode && user?.paymentPlan === 'monthly') { setShowUpgrade(true); return; }
+    // Credit mode: show cost confirmation (500 credits)
+    if (isCreditMode) {
+      if (!await canGenerate('replicate/fast-flux-trainer')) return;
+    } else {
+      if (!await canGenerate()) return;
+    }
     if (trainImages.length < 5) { setError('Please upload at least 5 images for training.'); return; }
     if (!trainTrigger.trim()) { setError('Please enter a trigger word.'); return; }
     if (!trainModelName.trim()) { setError('Please enter a model name.'); return; }
-
     let logLines = ['Initializing...'];
     const log = (msg) => { logLines = [...logLines, msg]; setTrainStatus(prev => ({ ...(prev || {}), logs: logLines.join('\n'), status: prev?.status || 'starting' })); };
     setTrainStatus({ id: null, status: 'starting', logs: 'Initializing...', version: null, destination: '' });
     setTrainPolling(true);
 
+    // Credit Mode Training
+    if (isCreditMode) {
+      try {
+        log('Step 1/2: Zipping training images...');
+        const zipBlob = await createTrainingZip(trainImages);
+        const sizeMB = (zipBlob.size / 1024 / 1024).toFixed(1);
+        log(`Zip created: ${sizeMB}MB. Uploading & starting training...`);
+        const zipBase64 = await blobToBase64(zipBlob);
+        log('Step 2/2: Starting training (credits will be deducted)...');
+        const trainResp = await fetch(`${API_BASE}/api/credits/train`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+          body: JSON.stringify({ modelName: trainModelName.trim(), triggerWord: trainTrigger.trim(), training_steps: trainSteps, zipData: zipBase64 }),
+        });
+        const trainData = await trainResp.json();
+        if (trainResp.status === 402) {
+          setError(trainData.error || 'Insufficient credits for training.');
+          setShowCreditShop(true);
+          setTrainStatus(prev => ({ ...(prev || {}), status: 'failed', logs: logLines.join('\n') + '\nInsufficient credits' }));
+          setTrainPolling(false);
+          return;
+        }
+        if (!trainResp.ok) throw new Error(trainData.error || 'Failed to start training');
+        if (trainData.credits != null) setCredits(trainData.credits);
+        log(`Training started! ID: ${trainData.id}`);
+        log(`${trainData.cost} credits deducted. Remaining: ${trainData.credits}`);
+        log('Polling for progress every 10 seconds...');
+        setTrainStatus({ id: trainData.id, status: trainData.status || 'processing', logs: logLines.join('\n'), version: null, destination: trainData.destination });
+        pollTraining(trainData.id, trainData.destination, true);
+        return;
+      } catch (err) {
+        console.error('[CreditTrain] ERROR:', err);
+        setError(err.message);
+        logLines.push(`ERROR: ${err.message}`);
+        setTrainStatus(prev => ({ ...(prev || {}), status: 'failed', logs: logLines.join('\n') }));
+        setTrainPolling(false);
+      }
+      return;
+    }
+
+    // Developer Mode Training
     try {
-      // Step 1: Get Replicate username
       log('Step 1/4: Getting Replicate account info...');
-      console.log('[Train] Step 1: Fetching account...');
-      const acctResp = await fetch(`${API_BASE}/api/replicate/account`, {
-        headers: replicateHeaders(false),
-      });
-      console.log('[Train] Account response:', acctResp.status);
+      const acctResp = await fetch(`${API_BASE}/api/replicate/account`, { headers: replicateHeaders(false) });
       const acctData = await acctResp.json();
-      console.log('[Train] Account data:', acctData);
       if (!acctResp.ok) throw new Error(acctData.error || acctData.detail || 'Failed to get account. Check your API key.');
       const username = acctData.username;
-      log(`✅ Account: ${username}`);
-
-      // Step 2: Create destination model
+      log(`Account: ${username}`);
       const modelSlug = trainModelName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
       log(`Step 2/4: Creating model ${username}/${modelSlug}...`);
-      console.log('[Train] Step 2: Creating model...');
       const modelResp = await fetch(`${API_BASE}/api/replicate/models`, {
-        method: 'POST',
-        headers: replicateHeaders(),
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify({ owner: username, name: modelSlug, visibility: 'private', hardware: 'gpu-t4' }),
       });
-      console.log('[Train] Model response:', modelResp.status);
       const modelData = await modelResp.json();
-      console.log('[Train] Model data:', modelData);
       if (!modelResp.ok && modelResp.status !== 409) throw new Error(modelData.error || modelData.detail || 'Failed to create model');
-      log(modelResp.status === 409 ? '✅ Model already exists, reusing.' : '✅ Model created successfully.');
-
-      // Step 3: Upload training images as a zip
+      log(modelResp.status === 409 ? 'Model already exists, reusing.' : 'Model created successfully.');
       log(`Step 3/4: Zipping ${trainImages.length} images...`);
-      console.log('[Train] Step 3: Creating zip...');
       const zipBlob = await createTrainingZip(trainImages);
       const sizeMB = (zipBlob.size / 1024 / 1024).toFixed(1);
       log(`Zip created: ${sizeMB}MB. Uploading...`);
-      console.log('[Train] Zip size:', sizeMB, 'MB. Uploading...');
       const zipBase64 = await blobToBase64(zipBlob);
-
       const uploadResp = await fetch(`${API_BASE}/api/replicate/upload`, {
-        method: 'POST',
-        headers: replicateHeaders(),
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify({ data: zipBase64, content_type: 'application/zip', filename: 'training_images.zip' }),
       });
-      console.log('[Train] Upload response:', uploadResp.status);
       const uploadData = await uploadResp.json();
-      console.log('[Train] Upload data:', uploadData);
       if (!uploadResp.ok) throw new Error(uploadData.error || 'Failed to upload training images');
-      log(`✅ Images uploaded successfully`);
-
-      // Step 4: Start training
+      log('Images uploaded successfully');
       log('Step 4/4: Starting LoRA training...');
-      console.log('[Train] Step 4: Starting training...');
       const trainResp = await fetch(`${API_BASE}/api/replicate/trainings`, {
-        method: 'POST',
-        headers: replicateHeaders(),
-        body: JSON.stringify({
-          destination: `${username}/${modelSlug}`,
-          input: {
-            input_images: uploadData.url,
-            trigger_word: trainTrigger.trim(),
-            training_steps: trainSteps,
-          },
-        }),
+        method: 'POST', headers: replicateHeaders(),
+        body: JSON.stringify({ destination: `${username}/${modelSlug}`, input: { input_images: uploadData.url, trigger_word: trainTrigger.trim(), training_steps: trainSteps } }),
       });
-      console.log('[Train] Training response:', trainResp.status);
       const trainData = await trainResp.json();
-      console.log('[Train] Training data:', trainData);
       if (!trainResp.ok) throw new Error(trainData.error || trainData.detail || 'Failed to start training');
-
-      log(`✅ Training started! ID: ${trainData.id}`);
-      log('🔄 Polling for progress every 10 seconds...');
-      setTrainStatus({ id: trainData.id, status: trainData.status || 'processing', logs: logLines.join('\n') + '\n✅ Training started! ID: ' + trainData.id + '\n🔄 Polling...', version: null, destination: `${username}/${modelSlug}` });
-
-      // Start polling
-      pollTraining(trainData.id, `${username}/${modelSlug}`);
+      log(`Training started! ID: ${trainData.id}`);
+      log('Polling for progress every 10 seconds...');
+      setTrainStatus({ id: trainData.id, status: trainData.status || 'processing', logs: logLines.join('\n'), version: null, destination: `${username}/${modelSlug}` });
+      pollTraining(trainData.id, `${username}/${modelSlug}`, false);
       return;
     } catch (err) {
       console.error('[Train] ERROR:', err);
       setError(err.message);
-      logLines.push(`❌ ERROR: ${err.message}`);
+      logLines.push(`ERROR: ${err.message}`);
       setTrainStatus(prev => ({ ...(prev || {}), status: 'failed', logs: logLines.join('\n') }));
       setTrainPolling(false);
     }
   };
 
-  const pollTraining = async (trainingId, destination) => {
-    const headers = replicateHeaders(false);
+  const pollTraining = async (trainingId, destination, useCreditMode = false) => {
     const poll = async () => {
       try {
-        const resp = await fetch(`${API_BASE}/api/replicate/trainings/${trainingId}`, { headers });
+        let resp;
+        if (useCreditMode) {
+          resp = await fetch(`${API_BASE}/api/credits/train/${trainingId}`, { headers: { 'x-auth-token': accessToken } });
+        } else {
+          resp = await fetch(`${API_BASE}/api/replicate/trainings/${trainingId}`, { headers: replicateHeaders(false) });
+        }
         const data = await resp.json();
         const logs = data.logs || '';
         const lastLines = logs.split('\n').filter(Boolean).slice(-5).join('\n');
         setTrainStatus(prev => ({ ...prev, status: data.status, logs: lastLines, version: data.output?.version || null }));
-
         if (data.status === 'succeeded') {
           const newModel = { name: destination, trigger: trainTrigger, version: data.output?.version, trainedAt: new Date().toISOString() };
-          // Save to DynamoDB
-          fetch(`${API_BASE}/api/trained-models`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
-            body: JSON.stringify(newModel),
-          }).then(r => r.json()).then(d => { if (d.models) setTrainHistory(d.models); }).catch(() => {});
+          fetch(`${API_BASE}/api/trained-models`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken }, body: JSON.stringify(newModel) }).then(r => r.json()).then(d => { if (d.models) setTrainHistory(d.models); }).catch(() => {});
           setTrainHistory(prev => [newModel, ...prev.filter(m => m.name !== destination)]);
           setTrainPolling(false);
+          if (useCreditMode) fetchCredits();
           return;
         }
         if (data.status === 'failed' || data.status === 'canceled') {
           setTrainPolling(false);
           setError(`Training ${data.status}: ${data.error || 'Unknown error'}`);
+          if (useCreditMode) fetchCredits();
           return;
         }
-        // Still processing, poll again in 10s
         setTimeout(poll, 10000);
       } catch (err) {
-        setTimeout(poll, 15000); // Retry on network error
+        setTimeout(poll, 15000);
       }
     };
     poll();
   };
 
-  // Helper: Create a ZIP from images using raw approach
-  const createTrainingZip = async (images) => {
+    const createTrainingZip = async (images) => {
     // Minimal ZIP creation without external library
     const files = images.map((img, i) => {
       const ext = img.name.split('.').pop() || 'jpg';
@@ -3473,7 +3481,7 @@ function App() {
         {/* ══ TRAIN TAB ══ */}
         {tab === 'train' && (
           <div>
-            {user?.paymentPlan === 'monthly' && (
+            {isDeveloperMode && user?.paymentPlan === 'monthly' && (
               <div onClick={() => setShowUpgrade(true)} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: 16, marginBottom: 16, textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 32, marginBottom: 6 }}>🔒</div>
                 <div style={{ color: '#f59e0b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Yearly Plan Required</div>
@@ -3481,14 +3489,16 @@ function App() {
               </div>
             )}
             <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
-              🧪 <strong style={{ color: '#fff' }}>Train Your Own LoRA Model</strong> — Upload 10-20 images of a subject (person, style, object), set a trigger word, and train a custom FLUX LoRA model. Training takes ~5-10 minutes using Replicate's fast trainer and costs ~$1-3 on your Replicate account.
+              🧪 <strong style={{ color: '#fff' }}>Train Your Own LoRA Model</strong> — Upload 10-20 images of a subject (person, style, object), set a trigger word, and train a custom FLUX LoRA model. Training takes ~5-10 minutes.
+              {isCreditMode && <span style={{ color: '#22d47b', fontWeight: 600 }}> Cost: {getModelCreditCost('replicate/fast-flux-trainer') || 500} credits.</span>}
+              {isDeveloperMode && <span> Costs ~$1-3 on your Replicate account.</span>}
             </div>
 
             {/* Model Name */}
             <div style={S.field}>
               <label style={S.label}>Model Name</label>
               <input style={S.input} placeholder="e.g. my-face-model" value={trainModelName} onChange={e => setTrainModelName(e.target.value)} />
-              <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Lowercase, no spaces. This creates a model on your Replicate account.</p>
+              <p style={{ fontSize: 11, color: '#666', margin: '4px 0 0' }}>Lowercase, no spaces. {isCreditMode ? 'Your trained model will be hosted on our servers.' : 'This creates a model on your Replicate account.'}</p>
             </div>
 
             {/* Trigger Word */}
@@ -3528,7 +3538,7 @@ function App() {
 
             {/* Start Training Button */}
             <button onClick={startTraining} disabled={loading || trainPolling} style={{ ...S.btn, width: '100%', padding: '14px', fontSize: 15, fontWeight: 600, borderRadius: 10, opacity: (loading || trainPolling) ? 0.5 : 1, marginBottom: 16 }}>
-              {trainPolling ? '⏳ Training in Progress...' : '🧪 Start Training'}
+              {trainPolling ? '⏳ Training in Progress...' : isCreditMode ? `🧪 Start Training (${getModelCreditCost('replicate/fast-flux-trainer') || 500} credits)` : '🧪 Start Training'}
             </button>
 
             {/* Training Status */}
