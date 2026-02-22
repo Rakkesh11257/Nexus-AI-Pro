@@ -14,192 +14,222 @@ const rateLimit = require('express-rate-limit');
 // ═══════════════════════════════════════════════
 // CREDIT COSTS PER MODEL (server-side source of truth)
 // Types: 'fixed' | 'variable' | 'per_second'
-// All values guarantee minimum 3x profit at ₹83.75/USD
+// Pricing: 4x profit for cheap models, 2x for expensive (>$0.30)
+// Rate: ₹83.75/USD, pack value ₹0.50/credit (Ultimate)
+// Formula: credits = ceil(USD × 83.75 × multiplier / 0.50)
 // ═══════════════════════════════════════════════
 const CREDIT_COSTS = {
-  // ── IMAGE GENERATION (fixed per image) ──
-  'black-forest-labs/flux-schnell': { type: 'fixed', credits: 2 },
-  'black-forest-labs/flux-dev': { type: 'fixed', credits: 4 },
-  'black-forest-labs/flux-1.1-pro': { type: 'fixed', credits: 12 },
-  'black-forest-labs/flux-1.1-pro-ultra': { type: 'fixed', credits: 18 },
-  'prunaai/flux-fast': { type: 'fixed', credits: 2 },
-  'prunaai/wan-2.2-image': { type: 'fixed', credits: 4 },
-  'bytedance/sdxl-lightning-4step': { type: 'fixed', credits: 2 },
-  'stability-ai/sdxl': { type: 'fixed', credits: 2 },
-  'ideogram-ai/ideogram-v3-quality': { type: 'fixed', credits: 16 },
-  'stability-ai/stable-diffusion-3.5-large': { type: 'fixed', credits: 6 },
-  'google/nano-banana-pro': { type: 'fixed', credits: 4 },
 
-  // ── IMAGE EDIT / I2I (fixed per image) ──
+  // ── IMAGE GENERATION (4x) ──
+  'black-forest-labs/flux-schnell': { type: 'fixed', credits: 3 },       // $0.003/img
+  'black-forest-labs/flux-dev': { type: 'fixed', credits: 4 },           // $0.005/img
+  'black-forest-labs/flux-1.1-pro': { type: 'fixed', credits: 27 },      // $0.04/img
+  'black-forest-labs/flux-1.1-pro-ultra': { type: 'fixed', credits: 41 },// $0.06/img
+  'prunaai/flux-fast': { type: 'fixed', credits: 4 },                    // $0.005/img
+  'prunaai/wan-2.2-image': { type: 'fixed', credits: 14 },               // $0.02/img
+  'bytedance/sdxl-lightning-4step': { type: 'fixed', credits: 2 },       // $0.0017/img
+  'stability-ai/sdxl': { type: 'fixed', credits: 5 },                    // $0.0067/img
+  'ideogram-ai/ideogram-v3-quality': { type: 'fixed', credits: 61 },     // $0.09/img
+  'stability-ai/stable-diffusion-3.5-large': { type: 'fixed', credits: 44 }, // $0.065/img
+  'google/nano-banana-pro': {                                            // $0.04-$0.30 by resolution (2x)
+    type: 'variable',
+    base: {
+      'default': { 'default': 14 },
+      '1K': { 'default': 51 },
+      '2K': { 'default': 51 },
+      '4K': { 'default': 101 },
+    },
+    default: 51,
+  },
+
+  // ── IMAGE EDIT / I2I (4x) ──
   'sdxl-based/consistent-character': { type: 'fixed', credits: 6 },
-  'zsxkib/instant-id': { type: 'fixed', credits: 6 },
-  'zedge/instantid': { type: 'fixed', credits: 4 },
-  'minimax/image-01': { type: 'fixed', credits: 6 },
-  'qwen/qwen-image': { type: 'fixed', credits: 6 },
+  'zsxkib/instant-id': { type: 'fixed', credits: 20 },                   // $0.029/img
+  'zedge/instantid': { type: 'fixed', credits: 2 },                      // $0.0015/img
+  'minimax/image-01': { type: 'fixed', credits: 7 },                     // $0.01/img
+  'qwen/qwen-image': { type: 'fixed', credits: 17 },                     // $0.025/img
 
-  // ── FACE SWAP (fixed) ──
-  'cdingram/face-swap': { type: 'fixed', credits: 4 },
-  'codeplugtech/face-swap': { type: 'fixed', credits: 4 },
+  // ── FACE SWAP (4x) ──
+  'cdingram/face-swap': { type: 'fixed', credits: 10 },                  // $0.014/run
+  'codeplugtech/face-swap': { type: 'fixed', credits: 2 },               // $0.0025/run
 
-  // ── UPSCALE (fixed) ──
-  'nightmareai/real-esrgan': { type: 'fixed', credits: 4 },
-  'philz1337x/crystal-upscaler': { type: 'fixed', credits: 12 },
-
-  // ── SKIN / PORTRAIT (fixed) ──
-  'fofr/kontext-make-person-real': { type: 'fixed', credits: 6 },
-  'flux-kontext-apps/change-haircut': { type: 'fixed', credits: 6 },
-  'zsxkib/ic-light': { type: 'fixed', credits: 10 },
-
-  // ── IMAGE-TO-VIDEO (variable by resolution + duration) ──
-  'wan-video/wan-2.2-i2v-fast': {
+  // ── UPSCALE ──
+  'nightmareai/real-esrgan': { type: 'fixed', credits: 2 },              // $0.002/img (4x)
+  'philz1337x/crystal-upscaler': {                                       // $0.05-$1.60 by scale (2x)
     type: 'variable',
     base: {
-      '480p': { '5': 10, '7': 12, '8': 15, '9': 15, '10': 15 },
-      '720p': { '5': 25, '7': 30, '8': 35, '9': 35, '10': 35 },
+      '2': { 'default': 34 },
+      '3': { 'default': 67 },
+      '4': { 'default': 67 },
+      '5': { 'default': 134 },
+      '6': { 'default': 134 },
+      '7': { 'default': 268 },
+      '8': { 'default': 268 },
+      '9': { 'default': 536 },
+      '10': { 'default': 536 },
     },
-    default: 15,
-  },
-  'wavespeedai/wan-2.1-i2v-720p': {
-    type: 'fixed', credits: 30,
-  },
-  'wan-video/wan-2.5-i2v': {
-    type: 'variable',
-    base: {
-      '480p': { '5': 12, '10': 22 },
-      '720p': { '5': 18, '10': 32 },
-      '1080p': { '5': 30, '10': 55 },
-    },
-    default: 30,
-  },
-  'wan-video/wan-2.5-i2v-fast': {
-    type: 'variable',
-    base: {
-      '720p': { '5': 15, '10': 28 },
-      '1080p': { '5': 25, '10': 45 },
-    },
-    default: 25,
+    default: 67,
   },
 
-  // ── TEXT-TO-VIDEO (variable by resolution + duration) ──
-  'wan-video/wan-2.2-t2v-fast': {
+  // ── SKIN / PORTRAIT (4x) ──
+  'fofr/kontext-make-person-real': { type: 'fixed', credits: 13 },       // $0.018/run
+  'flux-kontext-apps/change-haircut': { type: 'fixed', credits: 27 },    // $0.04/img
+  'zsxkib/ic-light': { type: 'fixed', credits: 16 },                     // $0.023/run
+
+  // ── IMAGE-TO-VIDEO ──
+  'wan-video/wan-2.2-i2v-fast': {                                        // $0.05-$0.145/video (4x)
     type: 'variable',
     base: {
-      '480p': { '5': 8, '7': 10, '8': 12, '9': 12, '10': 12 },
-      '720p': { '5': 18, '7': 24, '8': 28, '9': 28, '10': 28 },
+      '480p': { '5': 34, '7': 38, '8': 44, '9': 44, '10': 44 },
+      '720p': { '5': 74, '7': 86, '8': 98, '9': 98, '10': 98 },
     },
-    default: 12,
+    default: 44,
   },
-  'wavespeedai/wan-2.1-t2v-720p': {
-    type: 'fixed', credits: 25,
-  },
-  'wan-video/wan-2.5-t2v': {
+  'wavespeedai/wan-2.1-i2v-720p': { type: 'fixed', credits: 419 },      // $0.25/sec × ~5s = $1.25 (2x)
+  'wan-video/wan-2.5-i2v': {                                             // $0.05-$0.15/sec (2x)
     type: 'variable',
     base: {
-      '480p': { '5': 10, '10': 18 },
-      '720p': { '5': 15, '10': 28 },
-      '1080p': { '5': 28, '10': 50 },
+      '480p': { '5': 84, '10': 168 },
+      '720p': { '5': 168, '10': 335 },
+      '1080p': { '5': 252, '10': 503 },
     },
-    default: 25,
+    default: 168,
   },
-  'wan-video/wan-2.5-t2v-fast': {
+  'wan-video/wan-2.5-i2v-fast': {                                        // $0.068-$0.102/sec (2x)
     type: 'variable',
     base: {
-      '720p': { '5': 12, '10': 22 },
-      '1080p': { '5': 22, '10': 40 },
+      '720p': { '5': 114, '10': 228 },
+      '1080p': { '5': 171, '10': 342 },
     },
-    default: 20,
+    default: 114,
   },
 
-  // ── PREMIUM VIDEO MODELS (variable / per-second) ──
-  'google/veo-3.1-fast': {
+  // ── TEXT-TO-VIDEO ──
+  'wan-video/wan-2.2-t2v-fast': {                                        // $0.05-$0.145/video (4x)
+    type: 'variable',
+    base: {
+      '480p': { '5': 34, '7': 38, '8': 44, '9': 44, '10': 44 },
+      '720p': { '5': 74, '7': 86, '8': 98, '9': 98, '10': 98 },
+    },
+    default: 44,
+  },
+  'wavespeedai/wan-2.1-t2v-720p': { type: 'fixed', credits: 402 },      // $0.24/sec × ~5s = $1.20 (2x)
+  'wan-video/wan-2.5-t2v': {                                             // $0.05-$0.15/sec (2x)
+    type: 'variable',
+    base: {
+      '480p': { '5': 84, '10': 168 },
+      '720p': { '5': 168, '10': 335 },
+      '1080p': { '5': 252, '10': 503 },
+    },
+    default: 168,
+  },
+  'wan-video/wan-2.5-t2v-fast': {                                        // $0.068-$0.102/sec (2x)
+    type: 'variable',
+    base: {
+      '720p': { '5': 114, '10': 228 },
+      '1080p': { '5': 171, '10': 342 },
+    },
+    default: 114,
+  },
+
+  // ── PREMIUM VIDEO MODELS ──
+  'google/veo-3.1-fast': {                                               // $0.10-$0.15/sec (2x)
     type: 'per_second',
     rates: {
-      '720p': 40,    // 40 credits/second → 4s=160, 6s=240, 8s=320
-      '1080p': 40,   // same rate, Replicate charges same
+      '720p': 34,
+      '1080p': 34,
     },
-    default_rate: 40,
-    min_credits: 150,
+    default_rate: 34,
+    min_credits: 134,
   },
-  'kwaivgi/kling-v2.5-turbo-pro': {
+  'kwaivgi/kling-v2.5-turbo-pro': {                                      // $0.07/sec (2x)
     type: 'variable',
     base: {
-      'default': { '5': 100, '10': 200 },
+      'default': { '5': 118, '10': 235 },
     },
-    default: 100,
+    default: 118,
   },
-  'openai/sora-2-pro': {
+  'openai/sora-2-pro': {                                                 // $0.30-$0.50/sec (2x)
     type: 'variable',
     base: {
-      'standard': { '4': 120, '8': 240, '12': 360 },
-      'high': { '4': 180, '8': 360, '12': 540 },
+      'standard': { '4': 402, '8': 804, '12': 1206 },
+      'high': { '4': 670, '8': 1340, '12': 2010 },
     },
-    default: 200,
+    default: 402,
   },
-  'minimax/video-01': { type: 'fixed', credits: 40 },
-  'minimax/video-01-live': { type: 'fixed', credits: 40 },
-  'xai/grok-imagine-video': {
+  'minimax/video-01': { type: 'fixed', credits: 168 },                   // $0.50/video (2x)
+  'minimax/video-01-live': { type: 'fixed', credits: 168 },              // $0.50/video (2x)
+  'xai/grok-imagine-video': {                                            // $0.05/sec (2x)
     type: 'per_second',
     rates: {
-      '720p': 12,    // 12 credits/second → 5s=60
-      '1080p': 16,   // 16 credits/second → 5s=80
+      '720p': 17,
+      '1080p': 17,
     },
-    default_rate: 12,
-    min_credits: 50,
+    default_rate: 17,
+    min_credits: 84,
   },
 
   // ── VIDEO-TO-VIDEO ──
-  'kwaivgi/kling-o1': { type: 'fixed', credits: 90 },
-  'zsxkib/hunyuan-video2video': { type: 'fixed', credits: 30 },
-  'luma/modify-video': { type: 'fixed', credits: 75 },
+  'kwaivgi/kling-o1': {                                                  // $0.084/sec std (2x)
+    type: 'variable',
+    base: {
+      'default': { '5': 141, '10': 282 },
+    },
+    default: 141,
+  },
+  'zsxkib/hunyuan-video2video': { type: 'fixed', credits: 218 },         // $0.65/run (2x)
+  'luma/modify-video': { type: 'fixed', credits: 701 },                  // ~$2.09 for 720p 5s (2x)
 
   // ── MOTION CONTROL ──
-  'kwaivgi/kling-v2.6-motion-control': {
+  'kwaivgi/kling-v2.6-motion-control': {                                 // $0.07/sec (2x)
     type: 'variable',
     base: {
-      'default': { '5': 100, '10': 200 },
+      'default': { '5': 118, '10': 235 },
     },
-    default: 100,
+    default: 118,
   },
-  'wan-video/wan-2.2-animate-animation': { type: 'fixed', credits: 35 },
+  'wan-video/wan-2.2-animate-animation': { type: 'fixed', credits: 121 },// ~$0.36 runtime (2x)
 
-  // ── VIDEO FACE SWAP ──
-  'xrunda/hello': { type: 'fixed', credits: 35 },
-  'okaris/roop': { type: 'fixed', credits: 25 },
+  // ── VIDEO FACE SWAP (4x) ──
+  'xrunda/hello': { type: 'fixed', credits: 66 },                        // $0.098/run
+  'okaris/roop': { type: 'fixed', credits: 47 },                         // $0.070/run
 
-  // ── REPLACE CHARACTER ──
-  'wan-video/wan-2.2-animate-replace': {
+  // ── REPLACE CHARACTER (2x) ──
+  'wan-video/wan-2.2-animate-replace': {                                 // $0.02-$0.05/sec × ~8s
     type: 'variable',
     base: {
-      '480p': { 'default': 30 },
-      '720p': { 'default': 60 },
+      '480': { 'default': 54 },
+      '720': { 'default': 134 },
+      '480p': { 'default': 54 },
+      '720p': { 'default': 134 },
     },
-    default: 30,
+    default: 54,
   },
 
-  // ── AUDIO / TTS (fixed) ──
-  'elevenlabs/v3': { type: 'fixed', credits: 10 },
-  'elevenlabs/turbo-v2.5': { type: 'fixed', credits: 6 },
-  'minimax/speech-02-turbo': { type: 'fixed', credits: 6 },
-  'google/lyria-2': { type: 'fixed', credits: 16 },
-  'zsxkib/mmaudio': { type: 'fixed', credits: 10 },
+  // ── AUDIO / TTS (4x) ──
+  'elevenlabs/v3': { type: 'fixed', credits: 14 },                       // $0.10/1k chars × ~200 chars
+  'elevenlabs/turbo-v2.5': { type: 'fixed', credits: 7 },                // $0.05/1k chars × ~200 chars
+  'minimax/speech-02-turbo': { type: 'fixed', credits: 5 },              // $0.06/1k tok × ~100 tok
+  'google/lyria-2': { type: 'fixed', credits: 41 },                      // $2/1000s × ~30s
+  'zsxkib/mmaudio': { type: 'fixed', credits: 5 },                       // $0.0064/run
 
   // ── VOICE CLONE ──
-  'lucataco/xtts-v2': { type: 'fixed', credits: 40 },
-  'resemble-ai/chatterbox': { type: 'fixed', credits: 10 },
-  'minimax/voice-cloning': { type: 'fixed', credits: 900 },
+  'lucataco/xtts-v2': { type: 'fixed', credits: 41 },                    // $0.061/run (4x)
+  'resemble-ai/chatterbox': { type: 'fixed', credits: 4 },              // $0.005/run (4x)
+  'minimax/voice-cloning': { type: 'fixed', credits: 1005 },             // $3.00/output (2x)
 
   // ── TRANSCRIPTION ──
-  'openai/gpt-4o-transcribe': { type: 'fixed', credits: 10 },
-  'openai/whisper': { type: 'fixed', credits: 6 },
+  'openai/gpt-4o-transcribe': { type: 'fixed', credits: 41 },            // ~$0.06/run (4x)
+  'openai/whisper': { type: 'fixed', credits: 5 },                       // $0.007/run
 
-  // ── CHAT (per message) ──
-  'openai/gpt-5': { type: 'fixed', credits: 10 },
-  'anthropic/claude-4-sonnet': { type: 'fixed', credits: 6 },
-  'google/gemini-2.5-pro': { type: 'fixed', credits: 6 },
-  'google/gemini-2.5-flash': { type: 'fixed', credits: 4 },
-  'deepseek-ai/deepseek-r1': { type: 'fixed', credits: 4 },
-  'meta/meta-llama-3.1-405b-instruct': { type: 'fixed', credits: 4 },
-  'mistralai/mistral-large-latest': { type: 'fixed', credits: 4 },
+  // ── CHAT (flat 2 cr per message) ──
+  'openai/gpt-5': { type: 'fixed', credits: 2 },
+  'anthropic/claude-4-sonnet': { type: 'fixed', credits: 2 },
+  'google/gemini-2.5-pro': { type: 'fixed', credits: 2 },
+  'google/gemini-2.5-flash': { type: 'fixed', credits: 2 },
+  'deepseek-ai/deepseek-r1': { type: 'fixed', credits: 2 },
+  'meta/meta-llama-3.1-405b-instruct': { type: 'fixed', credits: 2 },
+  'mistralai/mistral-large-latest': { type: 'fixed', credits: 2 },
 };
 
 const DEFAULT_CREDIT_COST = 5; // fallback for unknown models
@@ -1343,10 +1373,15 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
       if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
       if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
-      // For num_frames → approximate duration (assuming ~24fps, 5s=120frames, 9s=216frames)
+      // Crystal upscaler: use scale_factor or scale as resolution key
+      if (!creditParams.resolution && (input?.scale_factor || input?.scale)) {
+        creditParams.resolution = String(input.scale_factor || input.scale);
+      }
+      // For num_frames → approximate duration (at model fps, default 16)
       if (!creditParams.duration && input?.num_frames) {
         const frames = parseInt(input.num_frames);
-        creditParams.duration = frames <= 130 ? '5' : frames <= 200 ? '9' : '10';
+        const fps = parseInt(input?.fps || 16);
+        creditParams.duration = String(Math.round(frames / fps));
       }
 
       const cost = getCreditCost(modelId, creditParams);
@@ -1407,6 +1442,8 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
         if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
         if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
         if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
+        if (!creditParams.resolution && (input?.scale_factor || input?.scale)) creditParams.resolution = String(input.scale_factor || input.scale);
+        if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.round(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
         const cost = getCreditCost(modelId, creditParams);
         await dynamoClient.send(new UpdateCommand({
           TableName: DYNAMO_TABLE,
@@ -1428,6 +1465,8 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
       if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
       if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
+      if (!creditParams.resolution && (input?.scale_factor || input?.scale)) creditParams.resolution = String(input.scale_factor || input.scale);
+      if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.round(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
       const cost = getCreditCost(modelId, creditParams);
       await dynamoClient.send(new UpdateCommand({
         TableName: DYNAMO_TABLE,
