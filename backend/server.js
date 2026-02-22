@@ -11,6 +11,263 @@ const os = require('os');
 
 const rateLimit = require('express-rate-limit');
 
+// ═══════════════════════════════════════════════
+// CREDIT COSTS PER MODEL (server-side source of truth)
+// Types: 'fixed' | 'variable' | 'per_second'
+// All values guarantee minimum 3x profit at ₹83.75/USD
+// ═══════════════════════════════════════════════
+const CREDIT_COSTS = {
+  // ── IMAGE GENERATION (fixed per image) ──
+  'black-forest-labs/flux-schnell': { type: 'fixed', credits: 2 },
+  'black-forest-labs/flux-dev': { type: 'fixed', credits: 4 },
+  'black-forest-labs/flux-1.1-pro': { type: 'fixed', credits: 12 },
+  'black-forest-labs/flux-1.1-pro-ultra': { type: 'fixed', credits: 18 },
+  'prunaai/flux-fast': { type: 'fixed', credits: 2 },
+  'prunaai/wan-2.2-image': { type: 'fixed', credits: 4 },
+  'bytedance/sdxl-lightning-4step': { type: 'fixed', credits: 2 },
+  'stability-ai/sdxl': { type: 'fixed', credits: 2 },
+  'ideogram-ai/ideogram-v3-quality': { type: 'fixed', credits: 16 },
+  'stability-ai/stable-diffusion-3.5-large': { type: 'fixed', credits: 6 },
+  'google/nano-banana-pro': { type: 'fixed', credits: 4 },
+
+  // ── IMAGE EDIT / I2I (fixed per image) ──
+  'sdxl-based/consistent-character': { type: 'fixed', credits: 6 },
+  'zsxkib/instant-id': { type: 'fixed', credits: 6 },
+  'zedge/instantid': { type: 'fixed', credits: 4 },
+  'minimax/image-01': { type: 'fixed', credits: 6 },
+  'qwen/qwen-image': { type: 'fixed', credits: 6 },
+
+  // ── FACE SWAP (fixed) ──
+  'cdingram/face-swap': { type: 'fixed', credits: 4 },
+  'codeplugtech/face-swap': { type: 'fixed', credits: 4 },
+
+  // ── UPSCALE (fixed) ──
+  'nightmareai/real-esrgan': { type: 'fixed', credits: 4 },
+  'philz1337x/crystal-upscaler': { type: 'fixed', credits: 12 },
+
+  // ── SKIN / PORTRAIT (fixed) ──
+  'fofr/kontext-make-person-real': { type: 'fixed', credits: 6 },
+  'flux-kontext-apps/change-haircut': { type: 'fixed', credits: 6 },
+  'zsxkib/ic-light': { type: 'fixed', credits: 10 },
+
+  // ── IMAGE-TO-VIDEO (variable by resolution + duration) ──
+  'wan-video/wan-2.2-i2v-fast': {
+    type: 'variable',
+    base: {
+      '480p': { '5': 10, '9': 15, '10': 15 },
+      '720p': { '5': 25, '9': 35, '10': 35 },
+    },
+    default: 15,
+  },
+  'wavespeedai/wan-2.1-i2v-720p': {
+    type: 'fixed', credits: 30,
+  },
+  'wan-video/wan-2.5-i2v': {
+    type: 'variable',
+    base: {
+      '480p': { '5': 12, '10': 22 },
+      '720p': { '5': 18, '10': 32 },
+      '1080p': { '5': 30, '10': 55 },
+    },
+    default: 30,
+  },
+  'wan-video/wan-2.5-i2v-fast': {
+    type: 'variable',
+    base: {
+      '720p': { '5': 15, '10': 28 },
+      '1080p': { '5': 25, '10': 45 },
+    },
+    default: 25,
+  },
+
+  // ── TEXT-TO-VIDEO (variable by resolution + duration) ──
+  'wan-video/wan-2.2-t2v-fast': {
+    type: 'variable',
+    base: {
+      '480p': { '5': 8, '9': 12, '10': 12 },
+      '720p': { '5': 18, '9': 28, '10': 28 },
+    },
+    default: 12,
+  },
+  'wavespeedai/wan-2.1-t2v-720p': {
+    type: 'fixed', credits: 25,
+  },
+  'wan-video/wan-2.5-t2v': {
+    type: 'variable',
+    base: {
+      '480p': { '5': 10, '10': 18 },
+      '720p': { '5': 15, '10': 28 },
+      '1080p': { '5': 28, '10': 50 },
+    },
+    default: 25,
+  },
+  'wan-video/wan-2.5-t2v-fast': {
+    type: 'variable',
+    base: {
+      '720p': { '5': 12, '10': 22 },
+      '1080p': { '5': 22, '10': 40 },
+    },
+    default: 20,
+  },
+
+  // ── PREMIUM VIDEO MODELS (variable / per-second) ──
+  'google/veo-3.1-fast': {
+    type: 'per_second',
+    rates: {
+      '720p': 40,    // 40 credits/second → 4s=160, 6s=240, 8s=320
+      '1080p': 40,   // same rate, Replicate charges same
+    },
+    default_rate: 40,
+    min_credits: 150,
+  },
+  'kwaivgi/kling-v2.5-turbo-pro': {
+    type: 'variable',
+    base: {
+      'default': { '5': 100, '10': 200 },
+    },
+    default: 100,
+  },
+  'openai/sora-2-pro': {
+    type: 'variable',
+    base: {
+      'standard': { '4': 120, '8': 240, '12': 360 },
+      'high': { '4': 180, '8': 360, '12': 540 },
+    },
+    default: 200,
+  },
+  'minimax/video-01': { type: 'fixed', credits: 40 },
+  'minimax/video-01-live': { type: 'fixed', credits: 40 },
+  'xai/grok-imagine-video': {
+    type: 'per_second',
+    rates: {
+      '720p': 12,    // 12 credits/second → 5s=60
+      '1080p': 16,   // 16 credits/second → 5s=80
+    },
+    default_rate: 12,
+    min_credits: 50,
+  },
+
+  // ── VIDEO-TO-VIDEO ──
+  'kwaivgi/kling-o1': { type: 'fixed', credits: 90 },
+  'zsxkib/hunyuan-video2video': { type: 'fixed', credits: 30 },
+  'luma/modify-video': { type: 'fixed', credits: 75 },
+
+  // ── MOTION CONTROL ──
+  'kwaivgi/kling-v2.6-motion-control': {
+    type: 'variable',
+    base: {
+      'default': { '5': 100, '10': 200 },
+    },
+    default: 100,
+  },
+  'wan-video/wan-2.2-animate-animation': { type: 'fixed', credits: 35 },
+
+  // ── VIDEO FACE SWAP ──
+  'xrunda/hello': { type: 'fixed', credits: 35 },
+  'okaris/roop': { type: 'fixed', credits: 25 },
+
+  // ── REPLACE CHARACTER ──
+  'wan-video/wan-2.2-animate-replace': {
+    type: 'variable',
+    base: {
+      '480p': { 'default': 30 },
+      '720p': { 'default': 60 },
+    },
+    default: 30,
+  },
+
+  // ── AUDIO / TTS (fixed) ──
+  'elevenlabs/v3': { type: 'fixed', credits: 10 },
+  'elevenlabs/turbo-v2.5': { type: 'fixed', credits: 6 },
+  'minimax/speech-02-turbo': { type: 'fixed', credits: 6 },
+  'google/lyria-2': { type: 'fixed', credits: 16 },
+  'zsxkib/mmaudio': { type: 'fixed', credits: 10 },
+
+  // ── VOICE CLONE ──
+  'lucataco/xtts-v2': { type: 'fixed', credits: 40 },
+  'resemble-ai/chatterbox': { type: 'fixed', credits: 10 },
+  'minimax/voice-cloning': { type: 'fixed', credits: 900 },
+
+  // ── TRANSCRIPTION ──
+  'openai/gpt-4o-transcribe': { type: 'fixed', credits: 10 },
+  'openai/whisper': { type: 'fixed', credits: 6 },
+
+  // ── CHAT (per message) ──
+  'openai/gpt-5': { type: 'fixed', credits: 10 },
+  'anthropic/claude-4-sonnet': { type: 'fixed', credits: 6 },
+  'google/gemini-2.5-pro': { type: 'fixed', credits: 6 },
+  'google/gemini-2.5-flash': { type: 'fixed', credits: 4 },
+  'deepseek-ai/deepseek-r1': { type: 'fixed', credits: 4 },
+  'meta/meta-llama-3.1-405b-instruct': { type: 'fixed', credits: 4 },
+  'mistralai/mistral-large-latest': { type: 'fixed', credits: 4 },
+};
+
+const DEFAULT_CREDIT_COST = 5; // fallback for unknown models
+
+/**
+ * Calculate credit cost dynamically based on model + user parameters.
+ * @param {string} modelId - Replicate model ID (e.g., 'wan-video/wan-2.2-t2v-fast')
+ * @param {object} params - User-selected parameters: { resolution, duration, seconds }
+ * @returns {number} credit cost
+ */
+function getCreditCost(modelId, params = {}) {
+  const baseId = modelId.split(':')[0];
+  const costConfig = CREDIT_COSTS[baseId];
+  
+  if (!costConfig) return DEFAULT_CREDIT_COST;
+  
+  // Type 1: Fixed cost
+  if (costConfig.type === 'fixed') {
+    return costConfig.credits;
+  }
+  
+  // Type 2: Variable by resolution + duration
+  if (costConfig.type === 'variable') {
+    const resolution = params.resolution || 'default';
+    const duration = String(params.duration || params.seconds || 'default');
+    
+    // Try exact match: base[resolution][duration]
+    if (costConfig.base[resolution] && costConfig.base[resolution][duration] !== undefined) {
+      return costConfig.base[resolution][duration];
+    }
+    // Try 'default' resolution: base['default'][duration]
+    if (costConfig.base['default'] && costConfig.base['default'][duration] !== undefined) {
+      return costConfig.base['default'][duration];
+    }
+    // Try resolution with 'default' duration: base[resolution]['default']
+    if (costConfig.base[resolution] && costConfig.base[resolution]['default'] !== undefined) {
+      return costConfig.base[resolution]['default'];
+    }
+    // Try finding closest duration in first matching resolution
+    if (costConfig.base[resolution]) {
+      const durations = Object.keys(costConfig.base[resolution]).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+      const targetDur = parseInt(duration);
+      if (durations.length > 0 && !isNaN(targetDur)) {
+        // Find nearest duration (round up for safety/profit)
+        const nearest = durations.find(d => d >= targetDur) || durations[durations.length - 1];
+        return costConfig.base[resolution][String(nearest)];
+      }
+    }
+    return costConfig.default || DEFAULT_CREDIT_COST;
+  }
+  
+  // Type 3: Per-second billing
+  if (costConfig.type === 'per_second') {
+    const resolution = params.resolution || 'default';
+    const duration = parseInt(params.duration || params.seconds || 5);
+    const rate = costConfig.rates?.[resolution] || costConfig.default_rate || 40;
+    const calculated = rate * duration;
+    return Math.max(calculated, costConfig.min_credits || 0);
+  }
+  
+  return DEFAULT_CREDIT_COST;
+}
+
+// ═══════════════════════════════════════════════
+// SERVER-SIDE REPLICATE API KEY (for credit mode)
+// ═══════════════════════════════════════════════
+const SERVER_REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
+
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
@@ -134,6 +391,21 @@ app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), asyn
           },
         }));
         console.log('Webhook: Lifetime activated for', userId);
+      }
+
+      // --- Credit purchase captured ---
+      const type = payment.notes?.type;
+      if (userId && type === 'credit_purchase') {
+        const credits = parseInt(payment.notes?.credits) || 0;
+        if (credits > 0) {
+          await dynamoClient.send(new UpdateCommand({
+            TableName: DYNAMO_TABLE,
+            Key: { userId },
+            UpdateExpression: 'SET credits = if_not_exists(credits, :zero) + :amount',
+            ExpressionAttributeValues: { ':amount': credits, ':zero': 0 },
+          }));
+          console.log(`Webhook: ${credits} credits added for ${userId} (payment: ${payment.id})`);
+        }
       }
     }
 
@@ -301,7 +573,7 @@ app.post('/auth/login', async (req, res) => {
     } catch (e) {}
 
     if (!userData) {
-      userData = { userId: sub, email: userEmail, isPaid: false, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+      userData = { userId: sub, email: userEmail, isPaid: false, credits: 0, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
       await dynamoClient.send(new PutCommand({ TableName: DYNAMO_TABLE, Item: userData }));
     } else {
       // Check monthly subscription expiry
@@ -333,7 +605,12 @@ app.post('/auth/login', async (req, res) => {
     res.json({
       accessToken: tokens.AccessToken, idToken: tokens.IdToken,
       refreshToken: tokens.RefreshToken, expiresIn: tokens.ExpiresIn,
-      user: { sub, email: userEmail, isPaid: userData.isPaid || false, paymentPlan: userData.paymentPlan || null, subscriptionStatus: userData.subscriptionStatus || null }
+      user: {
+        sub, email: userEmail, isPaid: userData.isPaid || false,
+        paymentPlan: userData.paymentPlan || null,
+        subscriptionStatus: userData.subscriptionStatus || null,
+        credits: userData.credits || 0,
+      }
     });
   } catch (err) {
     if (err.name === 'UserNotConfirmedException') return res.status(403).json({ error: 'Please verify your email first', needsVerification: true });
@@ -397,6 +674,7 @@ app.get('/auth/me', verifyToken, async (req, res) => {
       paymentPlan: userData.paymentPlan || null,
       subscriptionStatus: userData.subscriptionStatus || null,
       subscriptionEnd: userData.subscriptionEnd || null,
+      credits: userData.credits || 0,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get user profile' });
@@ -670,8 +948,214 @@ app.post('/api/payment/verify-upgrade', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// REPLICATE API RELAY (paid users only)
+// CREDIT SYSTEM ENDPOINTS
 // ============================================
+
+// GET /api/credits - Check credit balance
+app.get('/api/credits', verifyToken, async (req, res) => {
+  try {
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+    const credits = dbResult.Item?.credits || 0;
+    res.json({ credits });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get credits' });
+  }
+});
+
+// GET /api/credits/cost - Get credit cost for a model (supports dynamic params)
+app.get('/api/credits/cost', (req, res) => {
+  const { model, resolution, duration, seconds } = req.query;
+  if (!model) return res.status(400).json({ error: 'model parameter required' });
+  const params = {};
+  if (resolution) params.resolution = resolution;
+  if (duration) params.duration = duration;
+  if (seconds) params.seconds = seconds;
+  const credits = getCreditCost(model, params);
+  res.json({ model, credits, params });
+});
+
+// GET /api/credits/costs - Get all credit costs (for frontend cache)
+app.get('/api/credits/costs', (req, res) => {
+  res.json({ costs: CREDIT_COSTS, default: DEFAULT_CREDIT_COST });
+});
+
+// POST /api/credits/deduct - Deduct credits for a generation (supports dynamic params)
+app.post('/api/credits/deduct', verifyToken, async (req, res) => {
+  const { modelId, resolution, duration, seconds } = req.body;
+  if (!modelId) return res.status(400).json({ error: 'modelId required' });
+
+  const params = {};
+  if (resolution) params.resolution = resolution;
+  if (duration) params.duration = duration;
+  if (seconds) params.seconds = seconds;
+  const cost = getCreditCost(modelId, params);
+
+  try {
+    // Atomic deduct: only succeeds if user has enough credits
+    const result = await dynamoClient.send(new UpdateCommand({
+      TableName: DYNAMO_TABLE,
+      Key: { userId: req.user.sub },
+      UpdateExpression: 'SET credits = credits - :cost',
+      ConditionExpression: 'credits >= :cost',
+      ExpressionAttributeValues: { ':cost': cost },
+      ReturnValues: 'ALL_NEW',
+    }));
+    res.json({ success: true, remaining: result.Attributes.credits, deducted: cost });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      // Get current balance for error message
+      const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+      const current = dbResult.Item?.credits || 0;
+      return res.status(402).json({ error: 'Insufficient credits', required: cost, current });
+    }
+    res.status(500).json({ error: 'Failed to deduct credits' });
+  }
+});
+
+// POST /api/credits/add - DISABLED (security: credits only added via verified purchase or webhook)
+// Credits are added server-side only through:
+//   1. POST /api/credits/verify (after Razorpay signature verification)
+//   2. Webhook payment.captured (after Razorpay signature verification)
+//   3. Refund logic in prediction endpoints (server-initiated only)
+app.post('/api/credits/add', (req, res) => {
+  res.status(403).json({ error: 'Direct credit addition is not permitted.' });
+});
+
+// POST /api/credits/purchase - Create Razorpay order for credit pack
+app.post('/api/credits/purchase', verifyToken, async (req, res) => {
+  const { packId } = req.body;
+  const CREDIT_PACKS = {
+    // ⚠️ TEST PRICES (₹1-₹4) - REVERT TO REAL PRICES BEFORE PRODUCTION
+    starter:  { credits: 100,  price: 100,    name: 'Starter Pack - 100 Credits' },   // ₹1
+    popular:  { credits: 500,  price: 200,    name: 'Popular Pack - 500 Credits' },   // ₹2
+    pro:      { credits: 1500, price: 300,    name: 'Pro Pack - 1,500 Credits' },     // ₹3
+    ultimate: { credits: 5000, price: 400,    name: 'Ultimate Pack - 5,000 Credits' }, // ₹4
+    // REAL PRICES (uncomment for production):
+    // starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },
+    // popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },
+    // pro:      { credits: 1500, price: 99900,  name: 'Pro Pack - 1,500 Credits' },
+    // ultimate: { credits: 5000, price: 249900, name: 'Ultimate Pack - 5,000 Credits' },
+  };
+
+  const pack = CREDIT_PACKS[packId];
+  if (!pack) return res.status(400).json({ error: 'Invalid pack' });
+
+  try {
+    const order = await razorpay.orders.create({
+      amount: pack.price, // in paise
+      currency: 'INR',
+      receipt: `credits_${req.user.sub}_${Date.now()}`,
+      notes: {
+        userId: req.user.sub,
+        email: req.user.email,
+        type: 'credit_purchase',
+        packId,
+        credits: String(pack.credits),
+      },
+    });
+    res.json({ orderId: order.id, amount: pack.price, credits: pack.credits, name: pack.name, keyId: RAZORPAY_KEY_ID });
+  } catch (err) {
+    console.error('Credit purchase error:', err);
+    res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+// POST /api/credits/verify - Verify credit purchase payment
+app.post('/api/credits/verify', verifyToken, async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packId } = req.body;
+
+  const CREDIT_PACKS = {
+    starter:  { credits: 100 },
+    popular:  { credits: 500 },
+    pro:      { credits: 1500 },
+    ultimate: { credits: 5000 },
+  };
+
+  const pack = CREDIT_PACKS[packId];
+  if (!pack) return res.status(400).json({ error: 'Invalid pack' });
+
+  // Verify signature
+  const generated = crypto
+    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(razorpay_order_id + '|' + razorpay_payment_id)
+    .digest('hex');
+
+  if (generated !== razorpay_signature) {
+    return res.status(400).json({ error: 'Payment verification failed' });
+  }
+
+  try {
+    // Add credits to user
+    const result = await dynamoClient.send(new UpdateCommand({
+      TableName: DYNAMO_TABLE,
+      Key: { userId: req.user.sub },
+      UpdateExpression: 'SET credits = if_not_exists(credits, :zero) + :amount, isPaid = :paid',
+      ExpressionAttributeValues: { ':amount': pack.credits, ':zero': 0, ':paid': true },
+      ReturnValues: 'ALL_NEW',
+    }));
+
+    console.log(`Credits added: ${pack.credits} to user ${req.user.sub} (payment: ${razorpay_payment_id})`);
+    res.json({ success: true, credits: result.Attributes.credits, added: pack.credits });
+  } catch (err) {
+    console.error('Credit verify error:', err);
+    res.status(500).json({ error: 'Failed to add credits' });
+  }
+});
+
+// ============================================
+// REPLICATE API RELAY
+// Supports TWO modes:
+//   1. Developer Mode: User sends own API key via Authorization header
+//   2. Credit Mode: No user API key → server uses its own key + deducts credits
+// ============================================
+
+// Middleware: Authenticate and determine mode (credit vs developer)
+const requireAccess = async (req, res, next) => {
+  const authToken = req.headers['x-auth-token'];
+  if (!authToken) return res.status(401).json({ error: 'Authentication required' });
+
+  try {
+    const userInfo = await cognitoClient.send(new GetUserCommand({ AccessToken: authToken }));
+    const sub = userInfo.UserAttributes.find(a => a.Name === 'sub')?.Value;
+    const email = userInfo.UserAttributes.find(a => a.Name === 'email')?.Value;
+    const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: sub } }));
+    const userData = dbResult.Item || {};
+
+    req.user = { sub, email };
+    req.userData = userData;
+
+    // Determine mode: if user sends Authorization header with Bearer token, it's developer mode
+    const userApiKey = req.headers['authorization'];
+    if (userApiKey && userApiKey.startsWith('Bearer ') && userApiKey !== `Bearer ${SERVER_REPLICATE_API_TOKEN}`) {
+      // Developer mode: user has subscription + own API key
+      if (!userData.isPaid) {
+        return res.status(403).json({ error: 'Premium access required. Subscribe or use credits.' });
+      }
+      // Check subscription expiry
+      if ((userData.paymentPlan === 'monthly' || userData.paymentPlan === 'yearly') && userData.subscriptionEnd) {
+        const endDate = new Date(userData.subscriptionEnd);
+        if (endDate < new Date() && userData.subscriptionStatus !== 'active') {
+          return res.status(403).json({ error: 'Subscription expired. Please renew or use credits.' });
+        }
+      }
+      req.mode = 'developer';
+      req.replicateApiKey = userApiKey;
+    } else {
+      // Credit mode: server API key + credits
+      if (!SERVER_REPLICATE_API_TOKEN) {
+        return res.status(503).json({ error: 'Credit mode is not configured. Please use your own API key.' });
+      }
+      req.mode = 'credits';
+      req.replicateApiKey = `Bearer ${SERVER_REPLICATE_API_TOKEN}`;
+    }
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Legacy requirePaid middleware (for non-Replicate endpoints that still need subscription check)
 const requirePaid = async (req, res, next) => {
   const authHeader = req.headers['x-auth-token'];
   if (!authHeader) return res.status(401).json({ error: 'Authentication required' });
@@ -697,6 +1181,7 @@ const requirePaid = async (req, res, next) => {
       }
     }
 
+    req.user = { sub };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
@@ -706,9 +1191,9 @@ const requirePaid = async (req, res, next) => {
 // ============================================
 // REPLICATE FILE UPLOAD (for video/audio → URL)
 // ============================================
-app.post('/api/replicate/upload', requirePaid, async (req, res) => {
+app.post('/api/replicate/upload', requireAccess, async (req, res) => {
   try {
-    const apiKey = req.headers['authorization'];
+    const apiKey = req.replicateApiKey;
     const { data, content_type, filename } = req.body;
     if (!data) return res.status(400).json({ error: 'No file data provided' });
 
@@ -813,7 +1298,7 @@ app.post('/api/replicate/upload', requirePaid, async (req, res) => {
 });
 
 // Upload file to temp storage with correct Content-Type (for models like Runway that validate headers)
-app.post('/api/upload-temp', requirePaid, async (req, res) => {
+app.post('/api/upload-temp', requireAccess, async (req, res) => {
   try {
     const { data, content_type } = req.body;
     if (!data) return res.status(400).json({ error: 'No file data provided' });
@@ -843,27 +1328,69 @@ app.post('/api/upload-temp', requirePaid, async (req, res) => {
   }
 });
 
-// Create prediction
-app.post('/api/replicate/predictions', requirePaid, async (req, res) => {
+// ============================================
+// CREATE PREDICTION (supports credit + developer mode)
+// ============================================
+app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
   try {
-    const apiKey = req.headers['authorization'];
-    const { model, version, input, _model } = req.body;
-
-    let url, body;
+    const { model, version, input, _model, _creditParams } = req.body;
     const modelId = model || _model;
-    // Use version mode if version is provided, OR if model contains ':' (version hash)
+
+    // ── CREDIT MODE: deduct credits BEFORE making the prediction ──
+    if (req.mode === 'credits') {
+      // Extract resolution/duration from either _creditParams or input
+      const creditParams = _creditParams || {};
+      if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
+      if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
+      if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
+      // For num_frames → approximate duration (assuming ~24fps, 5s=120frames, 9s=216frames)
+      if (!creditParams.duration && input?.num_frames) {
+        const frames = parseInt(input.num_frames);
+        creditParams.duration = frames <= 130 ? '5' : frames <= 200 ? '9' : '10';
+      }
+
+      const cost = getCreditCost(modelId, creditParams);
+      console.log(`>>> Credit mode: model=${modelId}, params=${JSON.stringify(creditParams)}, cost=${cost} credits`);
+
+      // Atomic deduct
+      try {
+        const deductResult = await dynamoClient.send(new UpdateCommand({
+          TableName: DYNAMO_TABLE,
+          Key: { userId: req.user.sub },
+          UpdateExpression: 'SET credits = credits - :cost',
+          ConditionExpression: 'credits >= :cost',
+          ExpressionAttributeValues: { ':cost': cost },
+          ReturnValues: 'ALL_NEW',
+        }));
+        console.log(`>>> Credits deducted: ${cost}, remaining: ${deductResult.Attributes.credits}`);
+      } catch (deductErr) {
+        if (deductErr.name === 'ConditionalCheckFailedException') {
+          const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+          const current = dbResult.Item?.credits || 0;
+          return res.status(402).json({
+            error: 'Insufficient credits',
+            required: cost,
+            current,
+            model: modelId,
+          });
+        }
+        throw deductErr;
+      }
+    }
+
+    // ── MAKE THE PREDICTION (both modes) ──
+    const apiKey = req.replicateApiKey;
+    let url, body;
     const versionHash = version || (modelId && modelId.includes(':') ? modelId.split(':')[1] : null);
     if (versionHash) {
-      // Version-based: POST /v1/predictions with version hash
       url = 'https://api.replicate.com/v1/predictions';
       body = { version: versionHash, input };
     } else {
-      // Model-based: POST /v1/models/{owner}/{name}/predictions
       url = `https://api.replicate.com/v1/models/${modelId}/predictions`;
       body = { input };
     }
 
-    console.log('>>> Replicate POST:', url);
+    console.log(`>>> Replicate POST (${req.mode} mode):`, url);
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': apiKey },
@@ -873,10 +1400,50 @@ app.post('/api/replicate/predictions', requirePaid, async (req, res) => {
     if (!contentType.includes('application/json')) {
       const text = await resp.text();
       console.error('>>> Replicate non-JSON response:', resp.status, text.slice(0, 200));
+
+      // If credit mode and prediction failed at API level, refund credits
+      if (req.mode === 'credits') {
+        const creditParams = _creditParams || {};
+        if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
+        if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
+        if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
+        const cost = getCreditCost(modelId, creditParams);
+        await dynamoClient.send(new UpdateCommand({
+          TableName: DYNAMO_TABLE,
+          Key: { userId: req.user.sub },
+          UpdateExpression: 'SET credits = if_not_exists(credits, :zero) + :amount',
+          ExpressionAttributeValues: { ':amount': cost, ':zero': 0 },
+        }));
+        console.log(`>>> Credits refunded: ${cost} (API error)`);
+      }
+
       return res.status(resp.status).json({ error: `Replicate returned non-JSON (${resp.status}). Model may not exist or URL is wrong.` });
     }
     const data = await resp.json();
     console.log('>>> Replicate status:', resp.status, data.id || data.detail || data.error || '');
+
+    // If prediction creation failed (4xx/5xx), refund credits
+    if (req.mode === 'credits' && resp.status >= 400) {
+      const creditParams = _creditParams || {};
+      if (!creditParams.resolution && input?.resolution) creditParams.resolution = input.resolution;
+      if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
+      if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
+      const cost = getCreditCost(modelId, creditParams);
+      await dynamoClient.send(new UpdateCommand({
+        TableName: DYNAMO_TABLE,
+        Key: { userId: req.user.sub },
+        UpdateExpression: 'SET credits = if_not_exists(credits, :zero) + :amount',
+        ExpressionAttributeValues: { ':amount': cost, ':zero': 0 },
+      }));
+      console.log(`>>> Credits refunded: ${cost} (prediction creation failed: ${resp.status})`);
+    }
+
+    // Add remaining credits to response for frontend to update UI
+    if (req.mode === 'credits' && resp.status < 400) {
+      const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+      data._remainingCredits = dbResult.Item?.credits || 0;
+    }
+
     res.status(resp.status).json(data);
   } catch (err) {
     console.error('Replicate create error:', err.message);
@@ -885,9 +1452,9 @@ app.post('/api/replicate/predictions', requirePaid, async (req, res) => {
 });
 
 // Poll prediction status
-app.get('/api/replicate/predictions/:id', requirePaid, async (req, res) => {
+app.get('/api/replicate/predictions/:id', requireAccess, async (req, res) => {
   try {
-    const apiKey = req.headers['authorization'];
+    const apiKey = req.replicateApiKey;
     const resp = await fetch(`https://api.replicate.com/v1/predictions/${req.params.id}`, {
       headers: { 'Authorization': apiKey },
     });
@@ -896,7 +1463,31 @@ app.get('/api/replicate/predictions/:id', requirePaid, async (req, res) => {
     if (data.status === 'failed') {
       console.error('>>> Prediction FAILED:', req.params.id, 'error:', JSON.stringify(data.error).slice(0, 500));
       if (data.input?.video) console.log('>>> Failed prediction video URL:', typeof data.input.video === 'string' ? data.input.video.slice(0, 200) : 'not-string');
+
+      // Refund credits if prediction failed during processing
+      if (req.mode === 'credits' && data.model) {
+        const cost = getCreditCost(data.model, {
+          resolution: data.input?.resolution,
+          duration: data.input?.duration,
+          seconds: data.input?.seconds,
+        });
+        await dynamoClient.send(new UpdateCommand({
+          TableName: DYNAMO_TABLE,
+          Key: { userId: req.user.sub },
+          UpdateExpression: 'SET credits = if_not_exists(credits, :zero) + :amount',
+          ExpressionAttributeValues: { ':amount': cost, ':zero': 0 },
+        }));
+        console.log(`>>> Credits refunded: ${cost} (prediction failed during processing)`);
+        data._creditsRefunded = cost;
+      }
     }
+
+    // Add remaining credits to poll response for frontend
+    if (req.mode === 'credits') {
+      const dbResult = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+      data._remainingCredits = dbResult.Item?.credits || 0;
+    }
+
     res.json(data);
   } catch (err) {
     console.error('Replicate poll error:', err.message);
@@ -1088,11 +1679,12 @@ const server = http.createServer({ maxHeaderSize: 65536 }, app);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ======================================================
-  NEXUS AI Pro v4.0 (SaaS Mode)
+  NEXUS AI Pro v4.0 (SaaS Mode + Credits)
   App:     http://localhost:${PORT}
   Auth:    AWS Cognito + DynamoDB
-  Payment: Razorpay (Lifetime + Monthly Subscription)
-  API:     Paid users provide their own Replicate key
+  Payment: Razorpay (Subscription + Credit Packs)
+  Modes:   Developer (own API key) | Credits (server key)
+  Models:  ${Object.keys(CREDIT_COSTS).length} models with dynamic pricing
 ======================================================
   `);
 });

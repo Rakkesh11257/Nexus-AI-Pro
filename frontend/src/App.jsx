@@ -13,7 +13,7 @@ const getModelLogo = (modelId) => {
 };
 
 // ─── Custom Model Selector with Logos ───
-const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan, onLockedClick, showNsfwBadge }) => {
+const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan, onLockedClick, showNsfwBadge, getCreditCost }) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   const selected = models.find(m => m.id === value);
@@ -39,6 +39,7 @@ const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan,
           <div style={{ color: '#fff', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>{selected ? selected.name : value}</span>
             {showNsfwBadge && selected?.nsfw && <span style={{ fontSize: 10, color: '#f472b6', background: 'rgba(244,114,182,0.1)', padding: '2px 7px', borderRadius: 8, border: '1px solid rgba(244,114,182,0.2)', fontWeight: 600, letterSpacing: '0.03em', flexShrink: 0 }}>18+</span>}
+            {getCreditCost && selected && (() => { const c = getCreditCost(selected.id); return c != null ? <span style={{ fontSize: 10, color: '#22d47b', background: 'rgba(34,212,123,0.08)', padding: '2px 7px', borderRadius: 8, border: '1px solid rgba(34,212,123,0.15)', fontWeight: 600, flexShrink: 0 }}>{c}{c === getCreditCost(selected.id) ? '' : '+'} cr</span> : null; })()}
           </div>
           {selected && <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 1 }}>{selected.desc}</div>}
         </div>
@@ -74,6 +75,7 @@ const ModelSelector = ({ models, value, onChange, extraOptions, style, userPlan,
               </div>
               {locked && <span style={{ fontSize: 12, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '2px 8px', borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)', whiteSpace: 'nowrap' }}>🔒 Yearly</span>}
               {showNsfwBadge && m.nsfw && !locked && <span style={{ fontSize: 10, color: '#f472b6', background: 'rgba(244,114,182,0.1)', padding: '2px 7px', borderRadius: 8, border: '1px solid rgba(244,114,182,0.2)', whiteSpace: 'nowrap', fontWeight: 600, letterSpacing: '0.03em' }}>18+</span>}
+              {getCreditCost && !locked && (() => { const c = getCreditCost(m.id); return c != null ? <span style={{ fontSize: 10, color: 'rgba(34,212,123,0.7)', whiteSpace: 'nowrap', fontWeight: 500 }}>{c} cr</span> : null; })()}
               {!locked && m.id === value && <span style={{ color: '#22d47b', fontSize: 14 }}>✓</span>}
             </div>
             );
@@ -732,10 +734,110 @@ function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
     </div>
   );
 }
+// ─── Credit Shop Modal ───
+function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const packs = [
+    { id: 'starter', credits: 100, price: 149, label: 'Starter', color: '#60a5fa', icon: '⚡' },
+    { id: 'popular', credits: 500, price: 499, label: 'Popular', color: '#22d47b', icon: '🔥', badge: 'BEST VALUE' },
+    { id: 'pro', credits: 1500, price: 999, label: 'Pro', color: '#a78bfa', icon: '🚀' },
+    { id: 'ultimate', credits: 5000, price: 2499, label: 'Ultimate', color: '#fbbf24', icon: '💎' },
+  ];
+  const handleBuy = async (pack) => {
+    setError(''); setLoading(true); setSuccess('');
+    try {
+      const res = await fetch(`${API_BASE}/api/credits/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+        body: JSON.stringify({ packId: pack.id }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to create order');
+      const order = await res.json();
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: 'INR',
+        name: 'NEXUS AI Pro',
+        description: order.name,
+        order_id: order.orderId,
+        prefill: { email: '' },
+        theme: { color: '#22d47b' },
+        modal: { ondismiss: () => setLoading(false) },
+        handler: async function (response) {
+          try {
+            const verifyRes = await fetch(`${API_BASE}/api/credits/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                packId: pack.id,
+              }),
+            });
+            const result = await verifyRes.json();
+            if (result.success) {
+              setSuccess(`${pack.credits.toLocaleString()} credits added!`);
+              onCreditsAdded(result.credits);
+              setTimeout(() => onClose(), 1500);
+            } else {
+              setError(result.error || 'Verification failed');
+            }
+          } catch (err) {
+            setError('Payment verification failed. Contact support.');
+          }
+          setLoading(false);
+        },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp) => {
+        setError(resp.error?.description || 'Payment failed.');
+        setLoading(false);
+      });
+      rzp.open();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+  return (
+    <div style={S.overlay} onClick={onClose}>
+      <div style={{ ...S.card, maxWidth: 480, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={S.closeBtn}>✕</button>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 36, marginBottom: 8 }}>💳</div>
+          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>Buy Credits</h2>
+          <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Current balance: <span style={{ color: '#22d47b', fontWeight: 600 }}>{credits.toLocaleString()} credits</span></p>
+        </div>
+        {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#ef4444', fontSize: 13 }}>{error}</div>}
+        {success && <div style={{ background: 'rgba(34,212,123,0.1)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#22d47b', fontSize: 13, fontWeight: 600 }}>✓ {success}</div>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {packs.map(p => (
+            <div key={p.id} onClick={() => !loading && handleBuy(p)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, cursor: loading ? 'wait' : 'pointer', position: 'relative', transition: 'all 0.2s', textAlign: 'center' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = p.color; e.currentTarget.style.background = `${p.color}10`; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}>
+              {p.badge && <span style={{ position: 'absolute', top: -8, right: -8, fontSize: 9, background: p.color, color: '#000', padding: '2px 6px', borderRadius: 6, fontWeight: 700 }}>{p.badge}</span>}
+              <div style={{ fontSize: 28, marginBottom: 6 }}>{p.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{p.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: p.color, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>credits</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>₹{p.price.toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>₹{(p.price / p.credits).toFixed(2)}/credit</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 14, marginBottom: 0 }}>Credits never expire · Secure payment via Razorpay</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Settings Modal ───
-function SettingsModal({ apiKey, onSave, onClose }) {
+function SettingsModal({ apiKey, onSave, onClose, credits, onOpenCreditShop }) {
   const [key, setKey] = useState(apiKey);
-  const [showSteps, setShowSteps] = useState(!apiKey);
+  const [showSteps, setShowSteps] = useState(false);
   const trimmed = key.trim();
   const valid = trimmed.startsWith('r8_') && trimmed.length > 20;
   return (
@@ -743,16 +845,41 @@ function SettingsModal({ apiKey, onSave, onClose }) {
       <div style={{ ...S.card, maxWidth: 500, position: 'relative', margin: 0, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={S.closeBtn}>✕</button>
         <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>⚙ Settings</h2>
-        <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Your Replicate API key powers all AI generations</p>
+        <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>Choose how you want to run AI generations</p>
+        {/* Mode Toggle Cards */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div onClick={() => { setKey(''); }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: !valid ? 'rgba(34,212,123,0.08)' : 'rgba(255,255,255,0.02)', border: !valid ? '2px solid rgba(34,212,123,0.4)' : '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><span style={{ fontSize: 16 }}>💳</span><span style={{ fontSize: 13, fontWeight: 700, color: !valid ? '#22d47b' : '#888' }}>Credit Mode</span>{!valid && <span style={{ fontSize: 9, background: '#22d47b', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>ACTIVE</span>}</div>
+            <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Buy credit packs. No API key needed.</p>
+          </div>
+          <div onClick={() => { if (!valid) setShowSteps(true); }} style={{ flex: 1, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: valid ? 'rgba(96,165,250,0.08)' : 'rgba(255,255,255,0.02)', border: valid ? '2px solid rgba(96,165,250,0.4)' : '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}><span style={{ fontSize: 16 }}>🔑</span><span style={{ fontSize: 13, fontWeight: 700, color: valid ? '#60a5fa' : '#888' }}>Developer Mode</span>{valid && <span style={{ fontSize: 9, background: '#60a5fa', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>ACTIVE</span>}</div>
+            <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Your own Replicate API key + Pro sub.</p>
+          </div>
+        </div>
+        {/* Credit Mode Info Panel */}
+        {!valid && (
+          <div style={{ background: 'rgba(34,212,123,0.05)', border: '1px solid rgba(34,212,123,0.15)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>Credit Balance</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#22d47b' }}>{(credits || 0).toLocaleString()} <span style={{ fontSize: 12, fontWeight: 400 }}>credits</span></span>
+            </div>
+            <button onClick={() => { onClose(); if (onOpenCreditShop) setTimeout(() => onOpenCreditShop(), 100); }} style={{ ...S.btn, width: '100%', padding: '10px', fontSize: 13 }}>💳 Buy Credits</button>
+            <p style={{ fontSize: 11, color: '#666', margin: '8px 0 0', textAlign: 'center' }}>Or enter a Replicate API key below to switch to Developer Mode</p>
+          </div>
+        )}
 
         <div style={S.field}>
           <label style={S.label}>Replicate API Key</label>
           <input style={S.input} type="password" placeholder="r8_..." value={key} onChange={e => setKey(e.target.value)} />
-          <p style={{ fontSize: 12, color: valid ? '#4ade80' : '#f87171', marginTop: 4 }}>
-            {valid ? '✓ Valid key format' : 'Enter your key starting with r8_'}
+          <p style={{ fontSize: 12, color: valid ? '#4ade80' : trimmed ? '#f87171' : '#888', marginTop: 4 }}>
+            {valid ? '✓ Valid key • Developer Mode will activate on save' : trimmed ? 'Key must start with r8_' : 'Leave empty for Credit Mode'}
           </p>
         </div>
-        <button onClick={() => onSave(trimmed)} disabled={!valid} style={{ ...S.btn, opacity: valid ? 1 : 0.5, marginBottom: 16 }}>Save Key</button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button onClick={() => onSave(trimmed)} disabled={!valid && trimmed !== ''} style={{ ...S.btn, flex: 1, opacity: (valid || trimmed === '') ? 1 : 0.5 }}>{valid ? '🔑 Save Key (Developer Mode)' : trimmed === '' ? '💳 Use Credit Mode' : 'Save Key'}</button>
+          {apiKey && <button onClick={() => { setKey(''); onSave(''); }} style={{ ...S.btnSm, padding: '8px 14px', fontSize: 12 }}>✕ Remove Key</button>}
+        </div>
 
         <div style={{ borderTop: '1px solid #1f2937', paddingTop: 14 }}>
           <p onClick={() => setShowSteps(!showSteps)} style={{ fontSize: 13, color: '#22d47b', cursor: 'pointer', margin: '0 0 12px', fontWeight: 600 }}>
@@ -821,6 +948,7 @@ function App() {
   const [authState, setAuthState] = useState('loading'); // loading | auth | app
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState('');
+  const [credits, setCredits] = useState(0);
 
   // Tab & Category (persist across refresh)
   const [tab, setTabRaw] = useState(() => {
@@ -991,7 +1119,7 @@ function App() {
     if (!token) { setAuthState('auth'); return; }
     fetch(`${API_BASE}/auth/me`, { headers: { 'x-auth-token': token } })
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(data => { setUser(data); setAccessToken(token); setAuthState('app'); })
+      .then(data => { setUser(data); setAccessToken(token); setAuthState('app'); if (data.credits != null) setCredits(data.credits); })
       .catch(() => {
         const rt = localStorage.getItem('refreshToken');
         if (!rt) { setAuthState('auth'); return; }
@@ -999,7 +1127,7 @@ function App() {
           .then(r => r.ok ? r.json() : Promise.reject())
           .then(data => { localStorage.setItem('accessToken', data.accessToken); setAccessToken(data.accessToken); return fetch(`${API_BASE}/auth/me`, { headers: { 'x-auth-token': data.accessToken } }); })
           .then(r => r.ok ? r.json() : Promise.reject())
-          .then(data => { setUser(data); setAuthState('app'); })
+          .then(data => { setUser(data); setAuthState('app'); if (data.credits != null) setCredits(data.credits); })
           .catch(() => { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); setAuthState('auth'); });
       });
   }, []);
@@ -1015,16 +1143,114 @@ function App() {
 
   useEffect(() => { localStorage.setItem('nexus_history', JSON.stringify(history)); }, [history]);
 
-  const handleAuth = (u, t) => { setUser(u); setAccessToken(t); setAuthState('app'); };
+  const handleAuth = (u, t) => { setUser(u); setAccessToken(t); setAuthState('app'); if (u.credits != null) setCredits(u.credits); };
   const handleLogout = () => { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); setUser(null); setAccessToken(''); setAuthState('auth'); };
   const saveApiKey = (key) => { localStorage.setItem('replicate_api_key', key); setApiKey(key); setShowSettings(false); };
   const keyValid = apiKey.trim().startsWith('r8_') && apiKey.trim().length > 20;
 
+  // ─── Credit cost cache (loaded from server once) ───
+  const [creditCosts, setCreditCosts] = useState(null); // { costs: {...}, default: 5 }
+
+  // Fetch all credit costs on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/credits/costs`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setCreditCosts(data); })
+      .catch(() => {});
+  }, []);
+
+  // Client-side credit cost calculator (mirrors server-side getCreditCost)
+  const getModelCreditCost = (modelId, params = {}) => {
+    if (!creditCosts) return null;
+    const baseId = modelId.split(':')[0];
+    const config = creditCosts.costs[baseId];
+    if (!config) return creditCosts.default || 5;
+    if (config.type === 'fixed') return config.credits;
+    if (config.type === 'variable') {
+      const res = params.resolution || 'default';
+      const dur = String(params.duration || params.seconds || 'default');
+      if (config.base[res]?.[dur] !== undefined) return config.base[res][dur];
+      if (config.base['default']?.[dur] !== undefined) return config.base['default'][dur];
+      if (config.base[res]?.['default'] !== undefined) return config.base[res]['default'];
+      return config.default || creditCosts.default || 5;
+    }
+    if (config.type === 'per_second') {
+      const res = params.resolution || 'default';
+      const dur = parseInt(params.duration || params.seconds || 5);
+      const rate = config.rates?.[res] || config.default_rate || 40;
+      return Math.max(rate * dur, config.min_credits || 0);
+    }
+    return creditCosts.default || 5;
+  };
+
+  // ─── Fetch credits balance from server ───
+  const fetchCredits = async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/credits`, { headers: { 'x-auth-token': accessToken } });
+      if (res.ok) { const data = await res.json(); setCredits(data.credits || 0); }
+    } catch {}
+  };
+
+  // ─── Mode Detection ───
+  // Developer mode: user has valid API key + subscription
+  // Credit mode: no API key, uses server key + credits
+  const isDeveloperMode = keyValid;
+  const isCreditMode = !keyValid;
+
+  // ─── Credit Confirmation State ───
+  const [creditConfirm, setCreditConfirm] = useState(null); // { cost, modelName, onConfirm }
+  const [showCreditShop, setShowCreditShop] = useState(false);
+
   // ─── Pre-generate Check ───
-  const canGenerate = () => {
-    if (!user?.isPaid) { setShowPaywall(true); return false; }
-    if (!keyValid) { setError('Please set your Replicate API key in Settings first.'); setShowSettings(true); return false; }
-    return true;
+  // Pre-generate check: returns a Promise that resolves true if ok to proceed.
+  // In credit mode, shows a confirmation dialog the user must accept.
+  const canGenerate = (modelId, params = {}) => {
+    // Developer mode: need subscription + API key
+    if (isDeveloperMode) {
+      if (!user?.isPaid) { setShowPaywall(true); return Promise.resolve(false); }
+      return Promise.resolve(true);
+    }
+    // Credit mode: need enough credits
+    const cost = getModelCreditCost(modelId, params);
+    if (cost != null && credits < cost) {
+      setError(`Insufficient credits. Need ${cost} but you have ${credits}.`);
+      setShowCreditShop(true);
+      return Promise.resolve(false);
+    }
+    // Show confirmation dialog (resolves when user clicks Generate or Cancel)
+    if (cost != null && cost > 0) {
+      return new Promise(resolve => {
+        const baseId = (modelId || '').split(':')[0];
+        const modelName = baseId.split('/').pop() || 'Unknown';
+        setCreditConfirm({ cost, modelName, onConfirm: () => resolve(true), onCancel: () => resolve(false) });
+      });
+    }
+    return Promise.resolve(true);
+  };
+
+  // Update credits from API response (_remainingCredits)
+  const updateCreditsFromResponse = (data) => {
+    if (data?._remainingCredits != null) setCredits(data._remainingCredits);
+    if (data?._creditsRefunded) {
+      setError(prev => prev ? `${prev} (${data._creditsRefunded} credits refunded)` : '');
+    }
+  };
+
+  // Build headers for Replicate API calls (handles developer vs credit mode)
+  const replicateHeaders = (json = true) => {
+    const h = { 'x-auth-token': accessToken };
+    if (json) h['Content-Type'] = 'application/json';
+    if (isDeveloperMode && apiKey) h['Authorization'] = `Bearer ${apiKey}`;
+    return h;
+  };
+
+  // Wrapper: fetch + auto-update credits from response
+  const fetchAndUpdateCredits = async (url, opts) => {
+    const res = await fetch(url, opts);
+    const data = await res.json();
+    updateCreditsFromResponse(data);
+    return data;
   };
 
   // Helper: extract detailed error from Replicate API response
@@ -1046,7 +1272,7 @@ function App() {
   // ─── Generate Image ───
   const generateImage = async () => {
     if (!prompt.trim()) return setError('Enter a prompt');
-    if (!canGenerate()) return;
+    if (!await canGenerate(model)) return;
     const jobId = addJob('image', model, prompt.trim());
     setError('');
     try {
@@ -1169,18 +1395,17 @@ function App() {
 
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        headers: replicateHeaders(),
         body: JSON.stringify(reqBody),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 2000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
@@ -1197,7 +1422,7 @@ function App() {
     if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(i2iModel)) { setShowUpgrade(true); return; }
     if (!i2iPrompt.trim()) return setError('Enter a prompt');
     if (!i2iImage) return setError('Upload a source image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(i2iModel)) return;
     const jobId = addJob('i2i', i2iModel, i2iPrompt.trim());
     setError('');
     try {
@@ -1295,18 +1520,17 @@ function App() {
       updateJob(jobId, { status: 'Generating...' });
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        headers: replicateHeaders(),
         body: JSON.stringify({ ...body, _model: i2iModel }),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 2000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
@@ -1350,7 +1574,7 @@ function App() {
     const dataUri = blobOrDataUri.startsWith('blob:') ? await toDataUri(blobOrDataUri) : blobOrDataUri;
     const res = await fetch(`${API_BASE}/api/replicate/upload`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+      headers: replicateHeaders(),
       body: JSON.stringify({ data: dataUri, content_type: contentType }),
     });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `File upload failed (${res.status})`); }
@@ -1467,7 +1691,7 @@ function App() {
   const generateI2V = async () => {
     if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(i2vModel)) { setShowUpgrade(true); return; }
     if (!i2vImage) return setError('Upload a source image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(i2vModel)) return;
     const modelCfg = I2V_MODELS.find(m => m.id === i2vModel);
     const jobId = addJob('i2v', i2vModel, i2vPrompt.trim());
     setError('');
@@ -1477,18 +1701,17 @@ function App() {
 
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        headers: replicateHeaders(),
         body: JSON.stringify({ model: i2vModel, input }),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
@@ -1504,7 +1727,7 @@ function App() {
   const generateT2V = async () => {
     if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(t2vModel)) { setShowUpgrade(true); return; }
     if (!t2vPrompt.trim()) return setError('Enter a prompt');
-    if (!canGenerate()) return;
+    if (!await canGenerate(t2vModel)) return;
     const modelCfg = T2V_MODELS.find(m => m.id === t2vModel);
     const jobId = addJob('t2v', t2vModel, t2vPrompt.trim());
     setError('');
@@ -1514,18 +1737,17 @@ function App() {
 
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        headers: replicateHeaders(),
         body: JSON.stringify({ model: t2vModel, input }),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
@@ -1540,7 +1762,7 @@ function App() {
   // ─── Generate Chat ───
   const generateChat = async () => {
     if (!chatInput.trim() && !chatImage) return setError('Enter a message or attach an image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(chatModel)) return;
     const modelCfg = TEXT_MODELS.find(m => m.id === chatModel);
     const p = modelCfg?.params || {};
     // Capture values before clearing state
@@ -1583,18 +1805,17 @@ function App() {
 
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        headers: replicateHeaders(),
         body: JSON.stringify({ model: chatModel, input }),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
 
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 2000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
 
@@ -1790,7 +2011,7 @@ function App() {
   };
   // ─── Generate Motion Control ───
   const generateMotion = async () => {
-    if (!canGenerate()) return;
+    if (!await canGenerate(motionModel)) return;
     const modelCfg = MOTION_MODELS.find(m => m.id === motionModel);
     const isKling = motionModel.includes('kling');
     const isAnimate = motionModel.includes('animate');
@@ -1827,16 +2048,15 @@ function App() {
       }
       updateJob(jobId, { status: 'Generating...' });
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify({ model: motionModel, input }),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` }); await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
       const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
@@ -1850,7 +2070,7 @@ function App() {
   // ─── Generate Audio ───
   const generateAudio = async () => {
     if (!audioPrompt.trim()) return setError('Enter text or a prompt');
-    if (!canGenerate()) return;
+    if (!await canGenerate(audioModel)) return;
     const modelCfg = AUDIO_MODELS.find(m => m.id === audioModel);
     const p = modelCfg?.params || {};
     const isEL = audioModel.includes('elevenlabs');
@@ -1910,17 +2130,16 @@ function App() {
         reqBody = { model: audioModel, input };
       }
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` });
         await new Promise(r => setTimeout(r, 2500));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Generation failed');
       const url = Array.isArray(pred.output) ? pred.output[0] : pred.output;
@@ -1934,7 +2153,7 @@ function App() {
   // ─── Generate Transcription ───
   const generateTranscribe = async () => {
     if (!transcribeAudio) return setError('Upload an audio file');
-    if (!canGenerate()) return;
+    if (!await canGenerate(transcribeModel)) return;
     const jobId = addJob('transcribe', transcribeModel, 'Transcription');
     setError('');
     try {
@@ -1969,16 +2188,15 @@ function App() {
         reqBody = { model: transcribeModel, input };
       }
       const res = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody),
       });
-      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; }
+      if (res.status === 403) { setShowPaywall(true); finishJob(jobId); return; } if (res.status === 402) { const errData = await res.json().catch(() => ({})); setError(errData.error || "Insufficient credits"); finishJob(jobId); return; }
       if (!res.ok) throw new Error(await parseApiError(res));
-      let pred = await res.json();
+      let pred = await res.json(); updateCreditsFromResponse(pred);
       while (pred.status !== 'succeeded' && pred.status !== 'failed') {
         updateJob(jobId, { status: `${pred.status}...` }); await new Promise(r => setTimeout(r, 2000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        pred = await poll.json();
+        pred = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${pred.id}`, { headers: replicateHeaders(false) });
       }
       if (pred.status === 'failed') throw new Error(pred.error || 'Transcription failed');
       let output = pred.output;
@@ -2006,7 +2224,7 @@ function App() {
 
   const startTraining = async () => {
     if (user?.paymentPlan === 'monthly') { setShowUpgrade(true); return; }
-    if (!canGenerate()) return;
+    if (!await canGenerate()) return;
     if (trainImages.length < 5) { setError('Please upload at least 5 images for training.'); return; }
     if (!trainTrigger.trim()) { setError('Please enter a trigger word.'); return; }
     if (!trainModelName.trim()) { setError('Please enter a model name.'); return; }
@@ -2021,7 +2239,7 @@ function App() {
       log('Step 1/4: Getting Replicate account info...');
       console.log('[Train] Step 1: Fetching account...');
       const acctResp = await fetch(`${API_BASE}/api/replicate/account`, {
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        headers: replicateHeaders(false),
       });
       console.log('[Train] Account response:', acctResp.status);
       const acctData = await acctResp.json();
@@ -2036,7 +2254,7 @@ function App() {
       console.log('[Train] Step 2: Creating model...');
       const modelResp = await fetch(`${API_BASE}/api/replicate/models`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        headers: replicateHeaders(),
         body: JSON.stringify({ owner: username, name: modelSlug, visibility: 'private', hardware: 'gpu-t4' }),
       });
       console.log('[Train] Model response:', modelResp.status);
@@ -2056,7 +2274,7 @@ function App() {
 
       const uploadResp = await fetch(`${API_BASE}/api/replicate/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        headers: replicateHeaders(),
         body: JSON.stringify({ data: zipBase64, content_type: 'application/zip', filename: 'training_images.zip' }),
       });
       console.log('[Train] Upload response:', uploadResp.status);
@@ -2070,7 +2288,7 @@ function App() {
       console.log('[Train] Step 4: Starting training...');
       const trainResp = await fetch(`${API_BASE}/api/replicate/trainings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken },
+        headers: replicateHeaders(),
         body: JSON.stringify({
           destination: `${username}/${modelSlug}`,
           input: {
@@ -2102,7 +2320,7 @@ function App() {
   };
 
   const pollTraining = async (trainingId, destination) => {
-    const headers = { 'Authorization': `Bearer ${apiKey}`, 'x-auth-token': accessToken };
+    const headers = replicateHeaders(false);
     const poll = async () => {
       try {
         const resp = await fetch(`${API_BASE}/api/replicate/trainings/${trainingId}`, { headers });
@@ -2172,7 +2390,7 @@ function App() {
   const generateFaceSwap = async () => {
     if (!faceswapSource) return setError('Upload a source image');
     if (!faceswapTarget) return setError('Upload a target face image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(faceswapModel)) return;
     const jobId = addJob('faceswap', faceswapModel, 'Face Swap');
     setError('');
     try {
@@ -2183,16 +2401,15 @@ function App() {
       updateJob(jobId, { status: 'Swapping faces...' });
       const reqBody = modelObj?.useVersion ? { version: faceswapModel.split(':')[1], input } : { model: faceswapModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Face swap failed');
@@ -2205,7 +2422,7 @@ function App() {
   // ─── Generate Upscale ───
   const generateUpscale = async () => {
     if (!upscaleImage) return setError('Upload an image to upscale');
-    if (!canGenerate()) return;
+    if (!await canGenerate(upscaleModel)) return;
     const jobId = addJob('upscale', upscaleModel, 'Image Upscale');
     setError('');
     try {
@@ -2218,16 +2435,15 @@ function App() {
       }
       updateJob(jobId, { status: 'Upscaling...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify({ model: upscaleModel, input })
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Upscale failed');
@@ -2240,7 +2456,7 @@ function App() {
   // ─── Generate Portrait Studio ───
   const generateSkin = async () => {
     if (!skinImage) return setError('Upload an image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(skinModel)) return;
     const jobId = addJob('skin', skinModel, 'Portrait Studio');
     setError('');
     try {
@@ -2262,16 +2478,15 @@ function App() {
       const hasVersion = modelObj?.useVersion || skinModel.includes(':');
       const reqBody = hasVersion ? { version: skinModel.split(':')[1], input } : { model: skinModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Portrait processing failed');
@@ -2285,7 +2500,7 @@ function App() {
   const generateV2V = async () => {
     if (!v2vVideo) return setError('Upload a source video');
     if (!v2vPrompt) return setError('Enter a prompt');
-    if (!canGenerate()) return;
+    if (!await canGenerate(v2vModel)) return;
     const jobId = addJob('v2v', v2vModel, 'Edit Video');
     setError('');
     try {
@@ -2340,16 +2555,15 @@ function App() {
       }
       updateJob(jobId, { status: 'Editing video...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(modelObj?.useVersion && v2vModel.includes(':') ? { version: v2vModel.split(':')[1], input } : { model: v2vModel, input })
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Video editing failed');
@@ -2363,7 +2577,7 @@ function App() {
   const generateVideoFS = async () => {
     if (!vfsVideo) return setError('Upload a source video');
     if (!vfsFaceImage) return setError('Upload a face image');
-    if (!canGenerate()) return;
+    if (!await canGenerate(vfsModel)) return;
     const jobId = addJob('videofs', vfsModel, 'Video Face Swap');
     setError('');
     try {
@@ -2381,16 +2595,15 @@ function App() {
       updateJob(jobId, { status: 'Swapping face in video...' });
       const reqBody = modelObj?.useVersion ? { version: vfsModel.split(':')[1], input } : { model: vfsModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: { 'x-auth-token': accessToken, Authorization: `Bearer ${apiKey}` } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(`${API_BASE}/api/replicate/predictions/${result.id}`, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Video face swap failed');
@@ -2408,7 +2621,7 @@ function App() {
     if (!replacecharVideo) return setError('Upload a source video');
     if (!replacecharImage) return setError('Upload a character image');
     if (!replacecharModel) return setError('No replace character model available');
-    if (!canGenerate()) return;
+    if (!await canGenerate(replacecharModel)) return;
     const jobId = addJob('replacechar', replacecharModel, 'Replace Character');
     setError('');
     try {
@@ -2421,16 +2634,15 @@ function App() {
       updateJob(jobId, { status: 'Replacing character...' });
       const reqBody = modelObj?.useVersion && replacecharModel.includes(':') ? { version: replacecharModel.split(':')[1], input } : { model: replacecharModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: 'Bearer ' + apiKey },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(API_BASE + '/api/replicate/predictions/' + result.id, { headers: { 'x-auth-token': accessToken, Authorization: 'Bearer ' + apiKey } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(API_BASE + '/api/replicate/predictions/' + result.id, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Replace character failed');
@@ -2446,7 +2658,7 @@ function App() {
     const modelObjCheck = VOICECLONE_MODELS.find(m => m.id === voicecloneModel);
     if (!modelObjCheck?.isMiniMaxClone && !voicecloneText.trim()) return setError('Enter text to speak');
     if (!voicecloneModel) return setError('No voice clone model available');
-    if (!canGenerate()) return;
+    if (!await canGenerate(voicecloneModel)) return;
     const jobId = addJob('voiceclone', voicecloneModel, 'Voice Clone');
     setError('');
     try {
@@ -2464,16 +2676,15 @@ function App() {
       updateJob(jobId, { status: 'Cloning voice...' });
       const reqBody = modelObj?.useVersion && voicecloneModel.includes(':') ? { version: voicecloneModel.split(':')[1], input } : { model: voicecloneModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken, Authorization: 'Bearer ' + apiKey },
+        method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
       });
-      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; }
+      if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
-      let result = await resp.json();
+      let result = await resp.json(); updateCreditsFromResponse(result);
       while (result.status !== 'succeeded' && result.status !== 'failed') {
         await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch(API_BASE + '/api/replicate/predictions/' + result.id, { headers: { 'x-auth-token': accessToken, Authorization: 'Bearer ' + apiKey } });
-        result = await poll.json();
+        result = await fetchAndUpdateCredits(API_BASE + '/api/replicate/predictions/' + result.id, { headers: replicateHeaders(false) });
         updateJob(jobId, { status: result.status });
       }
       if (result.status === 'failed') throw new Error(result.error || 'Voice clone failed');
@@ -2507,7 +2718,11 @@ function App() {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
           {user?.isPaid ? <span style={{ fontSize: 10, color: '#4ade80', background: 'rgba(74,222,128,0.1)', padding: '3px 8px', borderRadius: 20, border: '1px solid rgba(74,222,128,0.2)' }}>✓ Pro</span>
             : <span onClick={() => setShowPaywall(true)} style={{ fontSize: 10, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '3px 8px', borderRadius: 20, border: '1px solid rgba(251,191,36,0.2)', cursor: 'pointer' }}>🔒 Free</span>}
-          <button onClick={() => setShowSettings(true)} style={{ ...S.btnSm, padding: '5px 10px', fontSize: 12 }}>⚙</button>
+          <span onClick={() => setShowCreditShop(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: credits > 0 ? 'rgba(34,212,123,0.08)' : 'rgba(255,255,255,0.04)', border: credits > 0 ? '1px solid rgba(34,212,123,0.2)' : '1px solid rgba(255,255,255,0.08)', fontSize: 12, fontWeight: 600, color: credits > 0 ? '#22d47b' : '#666', cursor: 'pointer', transition: 'all 0.2s' }} title={`${credits} credits remaining • Click to buy more`}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" stroke={credits > 0 ? '#22d47b' : '#555'} strokeWidth="2" /><text x="12" y="16" textAnchor="middle" fill={credits > 0 ? '#22d47b' : '#555'} fontSize="12" fontWeight="700">C</text></svg>
+            {credits.toLocaleString()}
+          </span>
+          <button onClick={() => setShowSettings(true)} style={{ ...S.btnSm, padding: '5px 10px', fontSize: 12, position: 'relative' }}>⚙{isDeveloperMode && <span style={{ position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%', background: '#60a5fa', border: '1px solid #0d1117' }} title="Developer Mode" />}</button>
           <button onClick={handleLogout} style={{ ...S.btnSm, padding: '5px 10px', fontSize: 12 }}>Sign Out</button>
         </div>
       </header>
@@ -2580,7 +2795,7 @@ function App() {
         {/* ══ IMAGE TAB ══ */}
         {tab === 'image' && (
           <div>
-            <ModelSelector models={IMAGE_MODELS} value={model} onChange={v => { setModel(v); if (v.includes('schnell')) setSteps(4); else setSteps(20); }} showNsfwBadge
+            <ModelSelector getCreditCost={getModelCreditCost} models={IMAGE_MODELS} value={model} onChange={v => { setModel(v); if (v.includes('schnell')) setSteps(4); else setSteps(20); }} showNsfwBadge
               extraOptions={trainHistory.length > 0 ? (<>
                 <div style={{ padding: '8px 14px', color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', borderTop: '1px solid rgba(255,255,255,0.08)' }}>Your Trained Models</div>
                 {trainHistory.map(m => (
@@ -2635,7 +2850,7 @@ function App() {
         {/* ══ IMAGE TO IMAGE TAB ══ */}
         {tab === 'i2i' && (
           <div>
-            <ModelSelector models={I2I_MODELS} value={i2iModel} onChange={v => setI2iModel(v)} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
+            <ModelSelector getCreditCost={getModelCreditCost} models={I2I_MODELS} value={i2iModel} onChange={v => setI2iModel(v)} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
 
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>Source Image</label>
@@ -2682,7 +2897,7 @@ function App() {
         {/* ══ IMAGE TO VIDEO TAB ══ */}
         {tab === 'i2v' && (
           <div>
-            <ModelSelector models={I2V_MODELS} value={i2vModel} onChange={v => { setI2vModel(v); setI2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
+            <ModelSelector getCreditCost={getModelCreditCost} models={I2V_MODELS} value={i2vModel} onChange={v => { setI2vModel(v); setI2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
 
             <div style={{ marginBottom: 12 }}>
               <label style={S.label}>Source Image (Start Frame)</label>
@@ -2732,7 +2947,7 @@ function App() {
         {/* ══ TEXT TO VIDEO TAB ══ */}
         {tab === 't2v' && (
           <div>
-            <ModelSelector models={T2V_MODELS} value={t2vModel} onChange={v => { setT2vModel(v); setT2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
+            <ModelSelector getCreditCost={getModelCreditCost} models={T2V_MODELS} value={t2vModel} onChange={v => { setT2vModel(v); setT2vOpts({}); }} userPlan={user?.paymentPlan} onLockedClick={() => setShowUpgrade(true)} showNsfwBadge />
 
             <textarea style={{ ...S.input, minHeight: 80, marginBottom: 12 }} placeholder="Describe the video you want to create..." value={t2vPrompt} onChange={e => setT2vPrompt(e.target.value)} />
 
@@ -2755,7 +2970,7 @@ function App() {
           const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
           return (
           <div>
-            <ModelSelector models={MOTION_MODELS} value={motionModel} onChange={v => { setMotionModel(v); setMotionOpts({}); }} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={MOTION_MODELS} value={motionModel} onChange={v => { setMotionModel(v); setMotionOpts({}); }} />
 
             {/* Reference Image */}
             <div style={{ marginBottom: 12 }}>
@@ -2856,7 +3071,7 @@ function App() {
           const btnSt = (sel) => ({ padding: '6px 12px', background: sel ? 'rgba(34,212,123,0.2)' : '#111827', border: sel ? '1px solid rgba(34,212,123,0.4)' : '1px solid #333', borderRadius: 6, color: sel ? '#fff' : '#888', cursor: 'pointer', fontSize: 12 });
           return (
           <div>
-            <ModelSelector models={AUDIO_MODELS} value={audioModel} onChange={v => { setAudioModel(v); setAudioOpts({}); setAudioNegPrompt(''); setAudioVideo(null); setAudioImage(null); }} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={AUDIO_MODELS} value={audioModel} onChange={v => { setAudioModel(v); setAudioOpts({}); setAudioNegPrompt(''); setAudioVideo(null); setAudioImage(null); }} />
 
             {/* Prompt */}
             <textarea style={{ ...S.input, minHeight: isEL ? 80 : 60 }} placeholder={isMiniMaxTTS ? 'Enter text to speak (max 10,000 chars)...' : isEL ? 'Enter text to speak...' : isLyria ? 'Describe the music you want...' : 'Describe the audio/sound...'} value={audioPrompt} onChange={e => setAudioPrompt(e.target.value)} />
@@ -3003,7 +3218,7 @@ function App() {
           <div>
             {VOICECLONE_MODELS.length > 0 ? (
               <>
-                <ModelSelector models={VOICECLONE_MODELS} value={voicecloneModel} onChange={v => setVoicecloneModel(v)} />
+                <ModelSelector getCreditCost={getModelCreditCost} models={VOICECLONE_MODELS} value={voicecloneModel} onChange={v => setVoicecloneModel(v)} />
                 <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Voice Sample</label>
                 {voicecloneAudio ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><audio src={voicecloneAudio} style={{ borderRadius: 8 }} controls /><button onClick={() => setVoicecloneAudio(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3a4;</div>Upload voice sample<br/><span style={{ fontSize: 11, color: '#555' }}>Audio clip of the voice to clone</span><input type="file" accept="audio/*" onChange={e => { const f = e.target.files?.[0]; if (f) setVoicecloneAudio(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
                 {isMiniMaxClone ? (
@@ -3030,7 +3245,7 @@ function App() {
           const checkSt = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aaa', fontSize: 13 };
           return (
           <div>
-            <ModelSelector models={TRANSCRIBE_MODELS} value={transcribeModel} onChange={v => { setTranscribeModel(v); setTranscribeOpts({}); }} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={TRANSCRIBE_MODELS} value={transcribeModel} onChange={v => { setTranscribeModel(v); setTranscribeOpts({}); }} />
 
             {/* Audio upload */}
             <div style={{ marginBottom: 12 }}>
@@ -3111,7 +3326,7 @@ function App() {
           <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)', minHeight: 400 }}>
             {/* Model selector + settings */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <ModelSelector models={TEXT_MODELS} value={chatModel} onChange={v => { setChatModel(v); setChatOpts({}); }} style={{ flex: 1, minWidth: 180, marginBottom: 0 }} />
+              <ModelSelector getCreditCost={getModelCreditCost} models={TEXT_MODELS} value={chatModel} onChange={v => { setChatModel(v); setChatOpts({}); }} style={{ flex: 1, minWidth: 180, marginBottom: 0 }} />
               <button onClick={() => { setChatMessages([]); setChatImage(null); }} style={{ ...S.btnSm, color: '#ef4444', borderColor: '#ef4444' }}>Clear Chat</button>
             </div>
 
@@ -3318,7 +3533,7 @@ function App() {
         {/* ══ FACE SWAP TAB ══ */}
         {tab === 'faceswap' && (
           <div>
-            <ModelSelector models={FACESWAP_MODELS} value={faceswapModel} onChange={v => setFaceswapModel(v)} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={FACESWAP_MODELS} value={faceswapModel} onChange={v => setFaceswapModel(v)} />
             <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Image</label>
@@ -3335,7 +3550,7 @@ function App() {
         {/* ══ IMAGE UPSCALE TAB ══ */}
         {tab === 'upscale' && (
           <div>
-            <ModelSelector models={UPSCALE_MODELS} value={upscaleModel} onChange={v => setUpscaleModel(v)} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={UPSCALE_MODELS} value={upscaleModel} onChange={v => setUpscaleModel(v)} />
             <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Image to Upscale</label>
             {upscaleImage ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><img src={upscaleImage} alt="" style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setUpscaleImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f50d;</div>Upload image to upscale<br/><span style={{ fontSize: 11, color: '#555' }}>Enhance resolution up to 10x</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setUpscaleImage(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
             <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Scale Factor: {upscaleScale}x</label><input type="range" min="2" max="10" value={upscaleScale} onChange={e => setUpscaleScale(Number(e.target.value))} style={{ width: '100%' }} /></div>
@@ -3345,7 +3560,7 @@ function App() {
         {/* ══ PORTRAIT STUDIO TAB ══ */}
         {tab === 'skin' && (
           <div>
-            <ModelSelector models={SKIN_MODELS} value={skinModel} onChange={v => setSkinModel(v)} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={SKIN_MODELS} value={skinModel} onChange={v => setSkinModel(v)} />
             <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Portrait Image</label>
             {skinImage ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><img src={skinImage} alt="" style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} /><button onClick={() => setSkinImage(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f464;</div>Upload portrait<br/><span style={{ fontSize: 11, color: '#555' }}>Face photo for enhancement</span><input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) setSkinImage(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
             {(() => { const curSkinM = SKIN_MODELS.find(m => m.id === skinModel); if (curSkinM?.isHaircut) { return (<div><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Haircut Style</label><select value={skinHaircut} onChange={e => setSkinHaircut(e.target.value)} style={{ ...S.input, marginBottom: 14, width: '100%' }}><option key='No change' value='No change'>No change</option><option key='Random' value='Random'>Random</option><option key='Straight' value='Straight'>Straight</option><option key='Wavy' value='Wavy'>Wavy</option><option key='Curly' value='Curly'>Curly</option><option key='Bob' value='Bob'>Bob</option><option key='Pixie Cut' value='Pixie Cut'>Pixie Cut</option><option key='Layered' value='Layered'>Layered</option><option key='Messy Bun' value='Messy Bun'>Messy Bun</option><option key='High Ponytail' value='High Ponytail'>High Ponytail</option><option key='Low Ponytail' value='Low Ponytail'>Low Ponytail</option><option key='Braided Ponytail' value='Braided Ponytail'>Braided Ponytail</option><option key='French Braid' value='French Braid'>French Braid</option><option key='Dutch Braid' value='Dutch Braid'>Dutch Braid</option><option key='Fishtail Braid' value='Fishtail Braid'>Fishtail Braid</option><option key='Space Buns' value='Space Buns'>Space Buns</option><option key='Top Knot' value='Top Knot'>Top Knot</option><option key='Undercut' value='Undercut'>Undercut</option><option key='Mohawk' value='Mohawk'>Mohawk</option><option key='Crew Cut' value='Crew Cut'>Crew Cut</option><option key='Faux Hawk' value='Faux Hawk'>Faux Hawk</option><option key='Slicked Back' value='Slicked Back'>Slicked Back</option><option key='Side-Parted' value='Side-Parted'>Side-Parted</option><option key='Center-Parted' value='Center-Parted'>Center-Parted</option><option key='Blunt Bangs' value='Blunt Bangs'>Blunt Bangs</option><option key='Side-Swept Bangs' value='Side-Swept Bangs'>Side-Swept Bangs</option><option key='Shag' value='Shag'>Shag</option><option key='Lob' value='Lob'>Lob</option><option key='Angled Bob' value='Angled Bob'>Angled Bob</option><option key='A-Line Bob' value='A-Line Bob'>A-Line Bob</option><option key='Asymmetrical Bob' value='Asymmetrical Bob'>Asymmetrical Bob</option><option key='Graduated Bob' value='Graduated Bob'>Graduated Bob</option><option key='Inverted Bob' value='Inverted Bob'>Inverted Bob</option><option key='Layered Shag' value='Layered Shag'>Layered Shag</option><option key='Choppy Layers' value='Choppy Layers'>Choppy Layers</option><option key='Razor Cut' value='Razor Cut'>Razor Cut</option><option key='Perm' value='Perm'>Perm</option><option key='Soft Waves' value='Soft Waves'>Soft Waves</option><option key='Glamorous Waves' value='Glamorous Waves'>Glamorous Waves</option><option key='Hollywood Waves' value='Hollywood Waves'>Hollywood Waves</option><option key='Finger Waves' value='Finger Waves'>Finger Waves</option><option key='Tousled' value='Tousled'>Tousled</option><option key='Feathered' value='Feathered'>Feathered</option><option key='Pageboy' value='Pageboy'>Pageboy</option><option key='Pigtails' value='Pigtails'>Pigtails</option><option key='Pin Curls' value='Pin Curls'>Pin Curls</option><option key='Rollerset' value='Rollerset'>Rollerset</option><option key='Twist Out' value='Twist Out'>Twist Out</option><option key='Bantu Knots' value='Bantu Knots'>Bantu Knots</option><option key='Dreadlocks' value='Dreadlocks'>Dreadlocks</option><option key='Cornrows' value='Cornrows'>Cornrows</option><option key='Box Braids' value='Box Braids'>Box Braids</option><option key='Crochet Braids' value='Crochet Braids'>Crochet Braids</option><option key='Double Dutch Braids' value='Double Dutch Braids'>Double Dutch Braids</option><option key='French Fishtail Braid' value='French Fishtail Braid'>French Fishtail Braid</option><option key='Waterfall Braid' value='Waterfall Braid'>Waterfall Braid</option><option key='Rope Braid' value='Rope Braid'>Rope Braid</option><option key='Heart Braid' value='Heart Braid'>Heart Braid</option><option key='Halo Braid' value='Halo Braid'>Halo Braid</option><option key='Crown Braid' value='Crown Braid'>Crown Braid</option><option key='Braided Crown' value='Braided Crown'>Braided Crown</option><option key='Bubble Braid' value='Bubble Braid'>Bubble Braid</option><option key='Bubble Ponytail' value='Bubble Ponytail'>Bubble Ponytail</option><option key='Chignon' value='Chignon'>Chignon</option><option key='French Twist' value='French Twist'>French Twist</option><option key='Updo' value='Updo'>Updo</option><option key='Messy Updo' value='Messy Updo'>Messy Updo</option><option key='Beehive' value='Beehive'>Beehive</option><option key='Bouffant' value='Bouffant'>Bouffant</option><option key='Half-Up Half-Down' value='Half-Up Half-Down'>Half-Up Half-Down</option><option key='Victory Rolls' value='Victory Rolls'>Victory Rolls</option></select><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Hair Color</label><select value={skinHairColor} onChange={e => setSkinHairColor(e.target.value)} style={{ ...S.input, marginBottom: 14, width: '100%' }}><option key='No change' value='No change'>No change</option><option key='Random' value='Random'>Random</option><option key='Blonde' value='Blonde'>Blonde</option><option key='Brunette' value='Brunette'>Brunette</option><option key='Black' value='Black'>Black</option><option key='Dark Brown' value='Dark Brown'>Dark Brown</option><option key='Medium Brown' value='Medium Brown'>Medium Brown</option><option key='Light Brown' value='Light Brown'>Light Brown</option><option key='Auburn' value='Auburn'>Auburn</option><option key='Copper' value='Copper'>Copper</option><option key='Red' value='Red'>Red</option><option key='Strawberry Blonde' value='Strawberry Blonde'>Strawberry Blonde</option><option key='Platinum Blonde' value='Platinum Blonde'>Platinum Blonde</option><option key='Silver' value='Silver'>Silver</option><option key='White' value='White'>White</option><option key='Blue' value='Blue'>Blue</option><option key='Purple' value='Purple'>Purple</option><option key='Pink' value='Pink'>Pink</option><option key='Green' value='Green'>Green</option><option key='Blue-Black' value='Blue-Black'>Blue-Black</option><option key='Golden Blonde' value='Golden Blonde'>Golden Blonde</option><option key='Honey Blonde' value='Honey Blonde'>Honey Blonde</option><option key='Caramel' value='Caramel'>Caramel</option><option key='Chestnut' value='Chestnut'>Chestnut</option><option key='Mahogany' value='Mahogany'>Mahogany</option><option key='Burgundy' value='Burgundy'>Burgundy</option><option key='Jet Black' value='Jet Black'>Jet Black</option><option key='Ash Brown' value='Ash Brown'>Ash Brown</option><option key='Ash Blonde' value='Ash Blonde'>Ash Blonde</option><option key='Rose Gold' value='Rose Gold'>Rose Gold</option></select><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Gender</label><select value={skinGender} onChange={e => setSkinGender(e.target.value)} style={{ ...S.input, marginBottom: 14, width: '100%' }}><option value="none">Auto Detect</option><option value="male">Male</option><option value="female">Female</option></select></div>); } else if (curSkinM?.isICLight) { return (<div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Light Source</label><select value={skinLightSource} onChange={e => setSkinLightSource(e.target.value)} style={{ ...S.input, marginBottom: 14, width: '100%' }}><option value="None">None (Auto)</option><option value="Left Light">Left Light</option><option value="Right Light">Right Light</option><option value="Top Light">Top Light</option><option value="Bottom Light">Bottom Light</option></select><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Lighting Prompt</label><textarea style={{ ...S.input, minHeight: 80, width: '100%' }} placeholder='e.g. professional studio lighting, warm sunset glow...' value={skinPrompt} onChange={e => setSkinPrompt(e.target.value)} /></div>); } else { return (<div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Enhancement Prompt</label><textarea style={{ ...S.input, minHeight: 80, width: '100%' }} placeholder='e.g. make this person look photorealistic...' value={skinPrompt} onChange={e => setSkinPrompt(e.target.value)} /></div>); } })()}
@@ -3355,7 +3570,7 @@ function App() {
         {/* ══ V2V EDIT VIDEO TAB ══ */}
         {tab === 'v2v' && (
           <div>
-            <ModelSelector models={V2V_MODELS} value={v2vModel} onChange={v => setV2vModel(v)} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={V2V_MODELS} value={v2vModel} onChange={v => setV2vModel(v)} />
             <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
             {v2vVideo ? (<div style={{ position: 'relative', display: 'inline-block', marginBottom: 14 }}><video src={v2vVideo} style={{ maxHeight: 200, borderRadius: 8, border: '1px solid #333' }} controls muted /><button onClick={() => setV2vVideo(null)} style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: '50%', background: '#ef4444', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }}>&#x2715;</button></div>) : (<label style={{ display: 'block', padding: '40px 12px', border: '2px dashed rgba(138,92,246,0.4)', borderRadius: 12, textAlign: 'center', cursor: 'pointer', color: '#aaa', background: 'rgba(10,10,24,0.6)', marginBottom: 14 }}><div style={{ fontSize: 32, marginBottom: 6 }}>&#x1f3ac;</div>Upload video to edit<br/><span style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>{V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'MP4, MOV • 3-10s • Max 200MB • Min 720p' : V2V_MODELS.find(m => m.id === v2vModel)?.isHunyuan ? 'Any video • 768x768 output • Max 101 frames' : V2V_MODELS.find(m => m.id === v2vModel)?.isLumaModify ? 'Max 100MB • Max 30s • Mode: Adhere' : 'MP4, MOV, WebM • Max 8.7s'}</span><input type="file" accept={V2V_MODELS.find(m => m.id === v2vModel)?.isGrokV2V ? 'video/mp4,video/quicktime,video/webm' : V2V_MODELS.find(m => m.id === v2vModel)?.isKlingO1 ? 'video/mp4,video/quicktime' : V2V_MODELS.find(m => m.id === v2vModel)?.isHunyuan ? 'video/*' : 'video/mp4'} onChange={e => { const f = e.target.files?.[0]; if (f) setV2vVideo(URL.createObjectURL(f)); }} style={{ display: 'none' }} /></label>)}
             <div style={{ marginBottom: 14 }}><label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Edit Prompt</label><textarea value={v2vPrompt} onChange={e => setV2vPrompt(e.target.value)} placeholder="Describe how to transform the video..." rows={3} style={{ ...S.input, width: '100%', resize: 'vertical' }} /></div>
@@ -3365,7 +3580,7 @@ function App() {
         {/* ══ VIDEO FACE SWAP TAB ══ */}
         {tab === 'videofs' && (
           <div>
-            <ModelSelector models={VIDEOFS_MODELS} value={vfsModel} onChange={v => setVfsModel(v)} />
+            <ModelSelector getCreditCost={getModelCreditCost} models={VIDEOFS_MODELS} value={vfsModel} onChange={v => setVfsModel(v)} />
             <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
@@ -3383,7 +3598,7 @@ function App() {
           <div>
             {REPLACECHAR_MODELS.length > 0 ? (
               <>
-                <ModelSelector models={REPLACECHAR_MODELS} value={replacecharModel} onChange={v => setReplacecharModel(v)} />
+                <ModelSelector getCreditCost={getModelCreditCost} models={REPLACECHAR_MODELS} value={replacecharModel} onChange={v => setReplacecharModel(v)} />
                 <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
                   <div style={{ flex: 1 }}>
                     <label style={{ ...S.label, marginBottom: 6, display: 'block' }}>Source Video</label>
@@ -3454,9 +3669,37 @@ function App() {
       </div>
 
       {/* Modals */}
+      {/* Credit Confirmation Modal */}
+      {creditConfirm && (
+        <div style={S.overlay} onClick={() => { if (creditConfirm.onCancel) creditConfirm.onCancel(); setCreditConfirm(null); }}>
+          <div style={{ ...S.card, maxWidth: 380, position: 'relative', margin: 0, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => { if (creditConfirm.onCancel) creditConfirm.onCancel(); setCreditConfirm(null); }} style={S.closeBtn}>✕</button>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#fff' }}>Confirm Credit Usage</h3>
+            <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>This will deduct credits from your balance</p>
+            <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#22d47b' }}>{creditConfirm.cost} <span style={{ fontSize: 16, fontWeight: 400 }}>credits</span></div>
+              <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{creditConfirm.modelName}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', marginBottom: 12 }}>
+              <span style={{ color: '#888', fontSize: 13 }}>Current balance</span>
+              <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{credits.toLocaleString()} credits</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid #1f2937' }}>
+              <span style={{ color: '#888', fontSize: 13 }}>After generation</span>
+              <span style={{ color: (credits - creditConfirm.cost) > 0 ? '#22d47b' : '#ef4444', fontSize: 13, fontWeight: 600 }}>{(credits - creditConfirm.cost).toLocaleString()} credits</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button onClick={() => { if (creditConfirm.onCancel) creditConfirm.onCancel(); setCreditConfirm(null); }} style={{ ...S.btnSm, flex: 1, padding: '12px', fontSize: 14 }}>Cancel</button>
+              <button onClick={() => { const fn = creditConfirm.onConfirm; setCreditConfirm(null); fn(); }} style={{ ...S.btn, flex: 2, padding: '12px', fontSize: 14 }}>✓ Generate</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCreditShop && <CreditShopModal onClose={() => setShowCreditShop(false)} accessToken={accessToken} credits={credits} onCreditsAdded={(newTotal) => setCredits(newTotal)} />}
       {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} accessToken={accessToken} user={user} onPaymentSuccess={(plan) => { setUser(prev => ({ ...prev, isPaid: true, paymentPlan: plan })); setShowPaywall(false); }} />}
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} accessToken={accessToken} user={user} onUpgradeSuccess={() => { setUser(prev => ({ ...prev, paymentPlan: 'yearly' })); setShowUpgrade(false); }} />}
-      {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} credits={credits} onOpenCreditShop={() => setShowCreditShop(true)} />}
       {viewerItem && <ViewerModal item={viewerItem} onClose={() => setViewerItem(null)} onUseForVideo={useForVideo} onDelete={(item) => { setResults(prev => prev.filter(r => r !== item)); setViewerItem(null); }} />}
     </div>
   );
