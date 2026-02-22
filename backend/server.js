@@ -606,7 +606,8 @@ app.post('/auth/login', async (req, res) => {
     } catch (e) {}
 
     if (!userData) {
-      userData = { userId: sub, email: userEmail, isPaid: false, credits: 0, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+      userData = { userId: sub, email: userEmail, isPaid: false, credits: 45, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+      console.log('New user created with 45 free credits:', userEmail);
       await dynamoClient.send(new PutCommand({ TableName: DYNAMO_TABLE, Item: userData }));
     } else {
       // Check monthly subscription expiry
@@ -1077,7 +1078,7 @@ app.post('/api/credits/purchase', verifyToken, async (req, res) => {
     const order = await razorpay.orders.create({
       amount: pack.price, // in paise
       currency: 'INR',
-      receipt: `credits_${req.user.sub}_${Date.now()}`,
+      receipt: `cr_${req.user.sub.slice(-8)}_${Date.now()}`,
       notes: {
         userId: req.user.sub,
         email: req.user.email,
