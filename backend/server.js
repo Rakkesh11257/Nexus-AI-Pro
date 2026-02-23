@@ -1069,16 +1069,10 @@ app.post('/api/credits/add', (req, res) => {
 app.post('/api/credits/purchase', verifyToken, async (req, res) => {
   const { packId } = req.body;
   const CREDIT_PACKS = {
-    // ⚠️ TEST PRICES (₹1-₹4) - REVERT TO REAL PRICES BEFORE PRODUCTION
-    starter:  { credits: 100,  price: 100,    name: 'Starter Pack - 100 Credits' },   // ₹1
-    popular:  { credits: 500,  price: 200,    name: 'Popular Pack - 500 Credits' },   // ₹2
-    pro:      { credits: 1500, price: 300,    name: 'Pro Pack - 1,500 Credits' },     // ₹3
-    ultimate: { credits: 5000, price: 400,    name: 'Ultimate Pack - 5,000 Credits' }, // ₹4
-    // REAL PRICES (uncomment for production):
-    // starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },
-    // popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },
-    // pro:      { credits: 1500, price: 99900,  name: 'Pro Pack - 1,500 Credits' },
-    // ultimate: { credits: 5000, price: 249900, name: 'Ultimate Pack - 5,000 Credits' },
+    starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },   // ₹149
+    popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },   // ₹499
+    pro:      { credits: 1500, price: 99900,  name: 'Pro Pack - 1,500 Credits' },     // ₹999
+    ultimate: { credits: 5000, price: 249900, name: 'Ultimate Pack - 5,000 Credits' }, // ₹2,499
   };
 
   const pack = CREDIT_PACKS[packId];
