@@ -1428,13 +1428,13 @@ function App() {
       let reqBody;
       if (trainedModel && trainedModel.version) {
         // Trained LoRA model: use version hash
-        reqBody = { version: trainedModel.version, input };
+        reqBody = { version: trainedModel.version, input, _model: model.split(':')[0] || model };
       } else if (trainedModel) {
         // Trained model without version: use model name
         reqBody = { model, input };
       } else if (curModel?.useVersion && model.includes(':')) {
         const version = model.split(':')[1];
-        reqBody = { version, input };
+        reqBody = { version, input, _model: model.split(':')[0] };
       } else {
         reqBody = { model, input };
       }
@@ -2172,7 +2172,7 @@ function App() {
       // Version-based model (MMAudio)
       let reqBody;
       if (modelCfg?.useVersion && audioModel.includes(':')) {
-        reqBody = { version: audioModel.split(':')[1], input };
+        reqBody = { version: audioModel.split(':')[1], input, _model: audioModel.split(':')[0] };
       } else {
         reqBody = { model: audioModel, input };
       }
@@ -2230,7 +2230,7 @@ function App() {
       let reqBody;
       if (curTransModel?.useVersion && transcribeModel.includes(':')) {
         const version = transcribeModel.split(':')[1];
-        reqBody = { version, input };
+        reqBody = { version, input, _model: transcribeModel.split(':')[0] };
       } else {
         reqBody = { model: transcribeModel, input };
       }
@@ -2454,7 +2454,7 @@ function App() {
       const input = { swap_image: srcUri, input_image: tgtUri };
       const modelObj = FACESWAP_MODELS.find(m => m.id === faceswapModel);
       updateJob(jobId, { status: 'Swapping faces...' });
-      const reqBody = modelObj?.useVersion ? { version: faceswapModel.split(':')[1], input } : { model: faceswapModel, input };
+      const reqBody = modelObj?.useVersion ? { version: faceswapModel.split(':')[1], input, _model: faceswapModel.split(':')[0] } : { model: faceswapModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
@@ -2531,7 +2531,7 @@ function App() {
       updateJob(jobId, { status: 'Processing portrait...' });
       // Use version mode if useVersion flag is set OR if model ID contains a version hash
       const hasVersion = modelObj?.useVersion || skinModel.includes(':');
-      const reqBody = hasVersion ? { version: skinModel.split(':')[1], input } : { model: skinModel, input };
+      const reqBody = hasVersion ? { version: skinModel.split(':')[1], input, _model: skinModel.split(':')[0] } : { model: skinModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
@@ -2611,7 +2611,7 @@ function App() {
       updateJob(jobId, { status: 'Editing video...' });
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST', headers: replicateHeaders(),
-        body: JSON.stringify(modelObj?.useVersion && v2vModel.includes(':') ? { version: v2vModel.split(':')[1], input } : { model: v2vModel, input })
+        body: JSON.stringify(modelObj?.useVersion && v2vModel.includes(':') ? { version: v2vModel.split(':')[1], input, _model: v2vModel.split(':')[0] } : { model: v2vModel, input })
       });
       if (resp.status === 403) { setShowPaywall(true); finishJob(jobId, 'API key required'); return; } if (resp.status === 402) { const errData = await resp.json().catch(() => ({})); setError(errData.error || 'Insufficient credits'); finishJob(jobId); return; }
       if (!resp.ok) throw new Error(await parseApiError(resp));
@@ -2648,7 +2648,7 @@ function App() {
         input = { source: videoUri, target: faceUri };
       }
       updateJob(jobId, { status: 'Swapping face in video...' });
-      const reqBody = modelObj?.useVersion ? { version: vfsModel.split(':')[1], input } : { model: vfsModel, input };
+      const reqBody = modelObj?.useVersion ? { version: vfsModel.split(':')[1], input, _model: vfsModel.split(':')[0] } : { model: vfsModel, input };
       const resp = await fetch(`${API_BASE}/api/replicate/predictions`, {
         method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
@@ -2687,7 +2687,7 @@ function App() {
       const imageUrl = await uploadToReplicate(replacecharImage, 'image/png');
       let input = { video: videoUrl, character_image: imageUrl, resolution: '720', go_fast: false, merge_audio: false };
       updateJob(jobId, { status: 'Replacing character...' });
-      const reqBody = modelObj?.useVersion && replacecharModel.includes(':') ? { version: replacecharModel.split(':')[1], input } : { model: replacecharModel, input };
+      const reqBody = modelObj?.useVersion && replacecharModel.includes(':') ? { version: replacecharModel.split(':')[1], input, _model: replacecharModel.split(':')[0] } : { model: replacecharModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
         method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
@@ -2729,7 +2729,7 @@ function App() {
         input = { speaker: audioUrl, text: voicecloneText.trim(), language: voicecloneLang || 'en', cleanup_voice: voicecloneCleanup };
       }
       updateJob(jobId, { status: 'Cloning voice...' });
-      const reqBody = modelObj?.useVersion && voicecloneModel.includes(':') ? { version: voicecloneModel.split(':')[1], input } : { model: voicecloneModel, input };
+      const reqBody = modelObj?.useVersion && voicecloneModel.includes(':') ? { version: voicecloneModel.split(':')[1], input, _model: voicecloneModel.split(':')[0] } : { model: voicecloneModel, input };
       const resp = await fetch(API_BASE + '/api/replicate/predictions', {
         method: 'POST', headers: replicateHeaders(),
         body: JSON.stringify(reqBody)
