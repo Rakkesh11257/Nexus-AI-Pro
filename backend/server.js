@@ -90,8 +90,8 @@ const CREDIT_COSTS = {
   'wan-video/wan-2.2-i2v-fast': {                                        // $0.05-$0.145/video (4x)
     type: 'variable',
     base: {
-      '480p': { '5': 34, '7': 38, '8': 44, '9': 44, '10': 44 },
-      '720p': { '5': 74, '7': 86, '8': 98, '9': 98, '10': 98 },
+      '480p': { '5': 34, '6': 36, '7': 38, '8': 44 },
+      '720p': { '5': 74, '6': 80, '7': 86, '8': 98 },
     },
     default: 44,
   },
@@ -118,8 +118,8 @@ const CREDIT_COSTS = {
   'wan-video/wan-2.2-t2v-fast': {                                        // $0.05-$0.145/video (4x)
     type: 'variable',
     base: {
-      '480p': { '5': 34, '7': 38, '8': 44, '9': 44, '10': 44 },
-      '720p': { '5': 74, '7': 86, '8': 98, '9': 98, '10': 98 },
+      '480p': { '5': 34, '6': 36, '7': 38, '8': 44 },
+      '720p': { '5': 74, '6': 80, '7': 86, '8': 98 },
     },
     default: 44,
   },
@@ -1396,11 +1396,11 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       if (!creditParams.resolution && input?.number_of_outputs) {
         creditParams.resolution = String(input.number_of_outputs);
       }
-      // For num_frames → approximate duration (at model fps, default 16)
+      // For num_frames → duration (floor ensures more frames = same or higher cost)
       if (!creditParams.duration && input?.num_frames) {
         const frames = parseInt(input.num_frames);
         const fps = parseInt(input?.fps || 16);
-        creditParams.duration = String(Math.round(frames / fps));
+        creditParams.duration = String(Math.floor(frames / fps));
       }
 
       const cost = getCreditCost(modelId, creditParams);
@@ -1462,7 +1462,7 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
         if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
         if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
         if (!creditParams.resolution && (input?.scale_factor || input?.scale)) creditParams.resolution = String(input.scale_factor || input.scale);
-        if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.round(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
+        if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.floor(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
         const cost = getCreditCost(modelId, creditParams);
         await dynamoClient.send(new UpdateCommand({
           TableName: DYNAMO_TABLE,
@@ -1485,7 +1485,7 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       if (!creditParams.duration && input?.duration) creditParams.duration = input.duration;
       if (!creditParams.seconds && input?.seconds) creditParams.seconds = input.seconds;
       if (!creditParams.resolution && (input?.scale_factor || input?.scale)) creditParams.resolution = String(input.scale_factor || input.scale);
-      if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.round(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
+      if (!creditParams.duration && input?.num_frames) { creditParams.duration = String(Math.floor(parseInt(input.num_frames) / parseInt(input?.fps || 16))); }
       const cost = getCreditCost(modelId, creditParams);
       await dynamoClient.send(new UpdateCommand({
         TableName: DYNAMO_TABLE,
