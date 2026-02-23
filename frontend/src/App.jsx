@@ -735,16 +735,33 @@ function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
   );
 }
 // ─── Credit Shop Modal ───
-function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded }) {
+function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, onOpenSettings }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [timeLeft, setTimeLeft] = useState('');
   const packs = [
-    { id: 'starter', credits: 100, price: 149, label: 'Starter', color: '#60a5fa', icon: '⚡' },
-    { id: 'popular', credits: 500, price: 499, label: 'Popular', color: '#22d47b', icon: '🔥', badge: 'BEST VALUE' },
-    { id: 'pro', credits: 1500, price: 999, label: 'Pro', color: '#a78bfa', icon: '🚀' },
-    { id: 'ultimate', credits: 5000, price: 2499, label: 'Ultimate', color: '#fbbf24', icon: '💎' },
+    { id: 'starter', credits: 100, price: 149, originalPrice: 189, label: 'Starter', color: '#60a5fa', icon: '⚡' },
+    { id: 'popular', credits: 500, price: 499, originalPrice: 629, label: 'Popular', color: '#22d47b', icon: '🔥', badge: 'BEST VALUE' },
+    { id: 'pro', credits: 1500, price: 999, originalPrice: 1249, label: 'Pro', color: '#a78bfa', icon: '🚀' },
+    { id: 'ultimate', credits: 5000, price: 2499, originalPrice: 3129, label: 'Ultimate', color: '#fbbf24', icon: '💎' },
   ];
+  useEffect(() => {
+    const target = new Date('2026-03-10T23:59:59+05:30').getTime();
+    const tick = () => {
+      const now = Date.now();
+      const diff = target - now;
+      if (diff <= 0) { setTimeLeft('Offer expired'); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
   const handleBuy = async (pack) => {
     setError(''); setLoading(true); setSuccess('');
     try {
@@ -806,10 +823,15 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded }) {
     <div style={S.overlay} onClick={onClose}>
       <div style={{ ...S.card, maxWidth: 480, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={S.closeBtn}>✕</button>
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>💳</div>
           <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>Buy Credits</h2>
           <p style={{ color: '#888', fontSize: 13, margin: 0 }}>Current balance: <span style={{ color: '#22d47b', fontWeight: 600 }}>{credits.toLocaleString()} credits</span></p>
+        </div>
+        {/* Countdown Timer */}
+        <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(234,179,8,0.12))', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: '#fbbf24', fontWeight: 700, marginBottom: 4, letterSpacing: '0.05em' }}>🔥 LAUNCH OFFER — 25% OFF</div>
+          <div style={{ fontSize: 11, color: '#f87171' }}>Ends March 10 · <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#fff', letterSpacing: 1 }}>{timeLeft}</span></div>
         </div>
         {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#ef4444', fontSize: 13 }}>{error}</div>}
         {success && <div style={{ background: 'rgba(34,212,123,0.1)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#22d47b', fontSize: 13, fontWeight: 600 }}>✓ {success}</div>}
@@ -822,18 +844,46 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded }) {
               <div style={{ fontSize: 28, marginBottom: 6 }}>{p.icon}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{p.label}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: p.color, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>credits</div>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>credits</div>
+              <div style={{ fontSize: 12, color: '#666', textDecoration: 'line-through', marginBottom: 2 }}>₹{p.originalPrice.toLocaleString()}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>₹{p.price.toLocaleString()}</div>
-              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>₹{(p.price / p.credits).toFixed(2)}/credit</div>
+              <div style={{ fontSize: 10, color: '#22d47b', marginTop: 3, fontWeight: 600 }}>Save {Math.round((1 - p.price / p.originalPrice) * 100)}%</div>
             </div>
           ))}
         </div>
         <p style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 14, marginBottom: 0 }}>Credits never expire · Secure payment via Razorpay</p>
-      </div>
-    </div>
-  );
-}
 
+        {/* Developer Mode Promotion */}
+        <div style={{ marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 18 }}>🔑</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>Or go unlimited with Developer Mode</div>
+              <div style={{ fontSize: 11, color: '#888' }}>Use your own Replicate API key — no credit limits</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 2 }}>Monthly</div>
+              <div style={{ fontSize: 12, color: '#666', textDecoration: 'line-through' }}>₹629</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>₹499<span style={{ fontSize: 11, color: '#666', fontWeight: 400 }}>/mo</span></div>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center', position: 'relative' }}>
+              <span style={{ position: 'absolute', top: -7, right: -4, fontSize: 8, background: '#a78bfa', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>SAVE 50%</span>
+              <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600, marginBottom: 2 }}>Yearly</div>
+              <div style={{ fontSize: 12, color: '#666', textDecoration: 'line-through' }}>₹3,749</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>₹2,999<span style={{ fontSize: 11, color: '#666', fontWeight: 400 }}>/yr</span></div>
+            </div>
+          </div>
+          <button onClick={() => { onClose(); if (onOpenSettings) setTimeout(() => onOpenSettings(), 100); }} style={{ width: '100%', marginTop: 10, padding: '8px', background: 'transparent', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8, color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+            Setup in Settings →
+          </button>
+        </div>
+      </div>
+    </div>  );
+}
 // ─── Settings Modal ───
 function SettingsModal({ apiKey, onSave, onClose, credits, onOpenCreditShop }) {
   const [key, setKey] = useState(apiKey);
@@ -3772,7 +3822,7 @@ function App() {
           </div>
         </div>
       )}
-      {showCreditShop && <CreditShopModal onClose={() => setShowCreditShop(false)} accessToken={accessToken} credits={credits} onCreditsAdded={(newTotal) => setCredits(newTotal)} />}
+      {showCreditShop && <CreditShopModal onClose={() => setShowCreditShop(false)} accessToken={accessToken} credits={credits} onCreditsAdded={(newTotal) => setCredits(newTotal)} onOpenSettings={() => setShowSettings(true)} />}
       {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} accessToken={accessToken} user={user} onPaymentSuccess={(plan) => { setUser(prev => ({ ...prev, isPaid: true, paymentPlan: plan })); setShowPaywall(false); }} />}
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} accessToken={accessToken} user={user} onUpgradeSuccess={() => { setUser(prev => ({ ...prev, paymentPlan: 'yearly' })); setShowUpgrade(false); }} />}
       {showSettings && <SettingsModal apiKey={apiKey} onSave={saveApiKey} onClose={() => setShowSettings(false)} credits={credits} onOpenCreditShop={() => setShowCreditShop(true)} />}
