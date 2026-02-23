@@ -985,6 +985,7 @@ function App() {
   const [i2iImage, setI2iImage] = useState(null);
   const [i2iStrength, setI2iStrength] = useState(0.8);
   const [i2iNegPrompt, setI2iNegPrompt] = useState('');
+  const [i2iNumOutputs, setI2iNumOutputs] = useState(1);
 
   // Video (I2V)
   const [i2vPrompt, setI2vPrompt] = useState('');
@@ -1267,6 +1268,10 @@ function App() {
       const fps = opts.fps || p.fps?.default || 16;
       params.duration = Math.round(frames / fps);
     }
+    // Consistent Character: number_of_outputs → resolution key
+    if (opts.num_outputs && modelId.includes('consistent-character')) {
+      params.resolution = String(opts.num_outputs);
+    }
     return params;
   };
 
@@ -1463,7 +1468,8 @@ function App() {
     if (user?.paymentPlan === 'monthly' && isYearlyOnlyModel(i2iModel)) { setShowUpgrade(true); return; }
     if (!i2iPrompt.trim()) return setError('Enter a prompt');
     if (!i2iImage) return setError('Upload a source image');
-    if (!await canGenerate(i2iModel)) return;
+    const i2iOpts = i2iModel.includes('consistent-character') ? { num_outputs: i2iNumOutputs } : {};
+    if (!await canGenerate(i2iModel, i2iOpts)) return;
     const jobId = addJob('i2i', i2iModel, i2iPrompt.trim());
     setError('');
     try {
@@ -1477,7 +1483,7 @@ function App() {
       // Model-specific image field names and params
       let input;
       if (i2iModel.includes('consistent-character')) {
-        input = { prompt: i2iPrompt.trim(), subject: dataUri, number_of_outputs: 3, number_of_images_per_pose: 1, randomise_poses: true, output_format: 'png', output_quality: 90, disable_safety_checker: true };
+        input = { prompt: i2iPrompt.trim(), subject: dataUri, number_of_outputs: i2iNumOutputs, number_of_images_per_pose: 1, randomise_poses: true, output_format: 'png', output_quality: 90, disable_safety_checker: true };
         if (i2iNegPrompt.trim()) input.negative_prompt = i2iNegPrompt.trim();
       } else if (i2iModel.includes('zsxkib/instant-id')) {
         input = { prompt: i2iPrompt.trim(), image: dataUri };
@@ -2935,8 +2941,27 @@ function App() {
               <textarea style={{ ...S.input, minHeight: 40 }} placeholder="Negative prompt (optional)..." value={i2iNegPrompt} onChange={e => setI2iNegPrompt(e.target.value)} />
             </div>
 
+            {i2iModel.includes('consistent-character') && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={S.label}>Number of Images</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[1, 2, 3, 4].map(n => (
+                    <button key={n} onClick={() => setI2iNumOutputs(n)} style={{
+                      flex: 1, padding: '10px 0', background: i2iNumOutputs === n ? 'rgba(34,212,123,0.15)' : '#111827',
+                      border: i2iNumOutputs === n ? '1px solid rgba(34,212,123,0.5)' : '1px solid #333',
+                      borderRadius: 8, color: i2iNumOutputs === n ? '#fff' : '#888', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+                      transition: 'all 0.2s'
+                    }}>
+                      {n}
+                      {isCreditMode && <div style={{ fontSize: 10, color: i2iNumOutputs === n ? '#22d47b' : '#555', marginTop: 2 }}>{n * 14} cr</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button onClick={generateI2I} style={S.btn}>
-              🔄 Generate Image to Image{creditLabel(i2iModel)}
+              🔄 Generate Image to Image{creditLabel(i2iModel, i2iModel.includes('consistent-character') ? { num_outputs: i2iNumOutputs } : {})}
             </button>
 
 

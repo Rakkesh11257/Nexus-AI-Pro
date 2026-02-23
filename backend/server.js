@@ -44,7 +44,16 @@ const CREDIT_COSTS = {
   },
 
   // ── IMAGE EDIT / I2I (4x) ──
-  'sdxl-based/consistent-character': { type: 'fixed', credits: 6 },
+  'sdxl-based/consistent-character': {                                    // $0.02/img (4x)
+    type: 'variable',
+    base: {
+      '1': { 'default': 14 },
+      '2': { 'default': 28 },
+      '3': { 'default': 42 },
+      '4': { 'default': 56 },
+    },
+    default: 14,
+  },
   'zsxkib/instant-id': { type: 'fixed', credits: 20 },                   // $0.029/img
   'zedge/instantid': { type: 'fixed', credits: 2 },                      // $0.0015/img
   'minimax/image-01': { type: 'fixed', credits: 7 },                     // $0.01/img
@@ -1382,6 +1391,10 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       // Crystal upscaler: use scale_factor or scale as resolution key
       if (!creditParams.resolution && (input?.scale_factor || input?.scale)) {
         creditParams.resolution = String(input.scale_factor || input.scale);
+      }
+      // Consistent Character: use number_of_outputs as resolution key
+      if (!creditParams.resolution && input?.number_of_outputs) {
+        creditParams.resolution = String(input.number_of_outputs);
       }
       // For num_frames → approximate duration (at model fps, default 16)
       if (!creditParams.duration && input?.num_frames) {
