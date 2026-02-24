@@ -616,8 +616,8 @@ app.post('/auth/login', async (req, res) => {
     } catch (e) {}
 
     if (!userData) {
-      userData = { userId: sub, email: userEmail, isPaid: false, credits: 45, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
-      console.log('New user created with 45 free credits:', userEmail);
+      userData = { userId: sub, email: userEmail, isPaid: false, credits: 20, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+      console.log('New user created with 20 free credits:', userEmail);
       await dynamoClient.send(new PutCommand({ TableName: DYNAMO_TABLE, Item: userData }));
     } else {
       // Check monthly subscription expiry
