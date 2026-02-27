@@ -1438,6 +1438,63 @@ app.post('/api/replicate/predictions', requireAccess, async (req, res) => {
       body = { input };
     }
 
+    // ── NSFW PROMPT ENHANCEMENT for specific models ──
+    const NSFW_MODELS = [
+      'wan-video/wan-2.2-i2v-fast',
+      'prunaai/wan-2.2-image',
+      'bytedance/sdxl-lightning-4step',
+      'sdxl-based/consistent-character',
+      'zsxkib/ic-light',
+      'wavespeedai/wan-2.1-i2v-720p',
+      'wan-video/wan-2.2-t2v-fast',
+      'wavespeedai/wan-2.1-t2v-720p',
+      'stability-ai/sdxl',
+    ];
+    const NSFW_KEYWORDS = [
+      'naked', 'nude', 'boobs', 'breasts', 'pussy', 'vagina', 'remove cloth',
+      'remove dress', 'sex', 'nipple', 'nipples', 'strip', 'undress', 'topless',
+      'bottomless', 'nsfw', 'erotic', 'sensual', 'intimate', 'exposing', 'exposed',
+      'bare', 'unclothed', 'without clothes', 'no clothes', 'take off', 'uncovered',
+      'revealing', 'seductive', 'provocative', 'busty', 'cleavage', 'thighs',
+      'bikini', 'lingerie', 'bra', 'panties', 'underwear', 'navel', 'belly',
+      'voluptuous', 'curvy body', 'body visible', 'show body', 'full body nude',
+      'ass', 'butt', 'booty', 'tits', 'porn', 'xxx', 'orgasm', 'moan',
+      'pleasure', 'aroused', 'horny', 'slutty', 'naughty', 'dirty',
+      'sexual', 'seduce', 'foreplay', 'masturbat', 'penetrat',
+      'blowjob', 'handjob', 'cum', 'ejaculat', 'squirt',
+      'bondage', 'fetish', 'kinky', 'dominat', 'submissive',
+      'stripper', 'hooters', 'milf', 'hentai', 'ahegao',
+      'spread legs', 'bend over', 'on knees', 'doggy', 'missionary',
+      'riding', 'cowgirl', 'twerk', 'lap dance', 'pole dance',
+      'shower scene', 'bathing', 'wet body', 'oiled', 'glistening',
+      'see through', 'transparent', 'sheer', 'mesh',
+      'remove top', 'remove bottom', 'remove bra', 'remove panties',
+      'cloth remove', 'dress remove', 'undressing', 'disrobe',
+    ];
+    const isNsfwModel = NSFW_MODELS.some(m => {
+      if (!modelId) return false;
+      const baseModel = modelId.split(':')[0];
+      return baseModel === m || modelId === m;
+    });
+    if (isNsfwModel && body.input && body.input.prompt) {
+      const promptLower = body.input.prompt.toLowerCase();
+      const hasNsfwKeyword = NSFW_KEYWORDS.some(kw => promptLower.includes(kw));
+      if (hasNsfwKeyword) {
+        const originalPrompt = body.input.prompt;
+        const nsfwBase = 'Fully nude woman with no clothing at all, completely naked body fully exposed to camera. ' +
+          'Beautiful round breasts with detailed brown areolas and erect nipples clearly visible. ' +
+          'Smooth flat stomach with attractive navel piercing visible. ' +
+          'Clean shaved intimate area fully exposed and clearly visible between slightly parted thighs. ' +
+          'Gorgeous feminine curves, hourglass figure with wide hips and slim waist. ' +
+          'Soft glowing skin with natural body highlights, photorealistic skin texture and pores. ' +
+          'Seductive confident pose looking at camera with sultry expression. ' +
+          'Professional boudoir photography lighting, soft warm golden hour tones, shallow depth of field. ' +
+          'Ultra high resolution, 8K quality, hyperdetailed, masterpiece composition.';
+        body.input.prompt = `${nsfwBase} ${originalPrompt}`;
+        console.log(`>>> NSFW prompt enhanced for model ${modelId}`);
+      }
+    }
+
     console.log(`>>> Replicate POST (${req.mode} mode):`, url);
     const resp = await fetch(url, {
       method: 'POST',
