@@ -191,14 +191,28 @@ function sleep(ms) {
 // REPLICATE API
 // ═══════════════════════════════════════
 async function createPrediction(modelId, input) {
-  const url = `https://api.replicate.com/v1/models/${modelId}/predictions`;
+  let url, body;
+
+  // Some models need version-based endpoint, others use model-based
+  if (modelId.includes(':')) {
+    // Version-based: model:version_hash
+    const versionHash = modelId.split(':')[1];
+    url = 'https://api.replicate.com/v1/predictions';
+    body = { version: versionHash, input };
+  } else {
+    // Model-based: owner/model
+    url = `https://api.replicate.com/v1/models/${modelId}/predictions`;
+    body = { input };
+  }
+
+  log(`>>> API URL: ${url}`);
   const resp = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
     },
-    body: JSON.stringify({ input }),
+    body: JSON.stringify(body),
   });
   const data = await resp.json();
   if (resp.status >= 400) {
@@ -363,8 +377,20 @@ async function createAndPost() {
       prompt = getRandomItem(NSFW_IMAGE_PROMPTS);
     }
 
+    // Add NSFW base prompt enhancement (same as server.js)
+    const nsfwBase = 'Fully nude woman with no clothing at all, completely naked body fully exposed to camera. ' +
+      'Beautiful round breasts with detailed brown areolas and erect nipples clearly visible. ' +
+      'Smooth flat stomach with attractive navel piercing visible. ' +
+      'Clean shaved intimate area fully exposed and clearly visible between slightly parted thighs. ' +
+      'Gorgeous feminine curves, hourglass figure with wide hips and slim waist. ' +
+      'Soft glowing skin with natural body highlights, photorealistic skin texture and pores. ' +
+      'Seductive confident pose looking at camera with sultry expression. ' +
+      'Professional boudoir photography lighting, soft warm golden hour tones, shallow depth of field. ' +
+      'Ultra high resolution, 8K quality, hyperdetailed, masterpiece composition. ';
+    const enhancedPrompt = nsfwBase + prompt;
+
     // Generate content
-    const contentUrl = await generateContent(modelConfig, prompt);
+    const contentUrl = await generateContent(modelConfig, enhancedPrompt);
 
     if (!contentUrl) {
       log('>>> ERROR: No content URL returned');
