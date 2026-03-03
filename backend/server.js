@@ -381,8 +381,16 @@ const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: AW
 // ============================================
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_live_SCpCGFak928F7f';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'sAaMXrCyXwMAVxIHfqgaQFA1';
-const PLAN_YEARLY_PRICE = 299900;   // Rs 2999 in paise
-const PLAN_MONTHLY_PRICE = 49900;   // Rs 499 in paise
+// ── NEW SUBSCRIPTION PLANS (with monthly credit refresh) ──
+const SUBSCRIPTION_PLANS = {
+  starter_monthly:  { price: 99900,  credits: 1000, period: 'monthly', interval: 1, name: 'Starter - 1,000 Credits/month',  planKey: 'starter_monthly' },
+  pro_monthly:      { price: 199900, credits: 2500, period: 'monthly', interval: 1, name: 'Pro - 2,500 Credits/month',     planKey: 'pro_monthly' },
+  ultra_monthly:    { price: 299900, credits: 5000, period: 'monthly', interval: 1, name: 'Ultra - 5,000 Credits/month',   planKey: 'ultra_monthly' },
+};
+
+// Legacy prices kept for backwards compat
+const PLAN_YEARLY_PRICE = 299900;   // Rs 2999 in paise (legacy)
+const PLAN_MONTHLY_PRICE = 99900;   // Rs 999 in paise (now Starter)
 
 const razorpay = new Razorpay({
   key_id: RAZORPAY_KEY_ID,
@@ -452,27 +460,50 @@ app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), asyn
       }
     }
 
-    // --- Subscription charged (monthly/yearly renewal success) ---
+    // --- Subscription charged (renewal success - add credits for credit subscriptions) ---
     if (event.event === 'subscription.charged') {
       const sub = event.payload.subscription.entity;
       const userId = sub.notes?.userId;
+      const planKey = sub.notes?.plan;
+      const subType = sub.notes?.type;
 
       if (userId) {
         const subEnd = new Date();
         subEnd.setMonth(subEnd.getMonth() + 1);
 
-        await dynamoClient.send(new UpdateCommand({
-          TableName: DYNAMO_TABLE,
-          Key: { userId },
-          UpdateExpression: 'SET isPaid = :paid, subscriptionEnd = :subEnd, subscriptionStatus = :status, lastRenewal = :now',
-          ExpressionAttributeValues: {
-            ':paid': true,
-            ':subEnd': subEnd.toISOString(),
-            ':status': 'active',
-            ':now': new Date().toISOString(),
-          },
-        }));
-        console.log('Webhook: Monthly renewed for', userId);
+        // Credit subscription: add credits on each charge
+        if (subType === 'credit_subscription' && SUBSCRIPTION_PLANS[planKey]) {
+          const creditsToAdd = SUBSCRIPTION_PLANS[planKey].credits;
+          await dynamoClient.send(new UpdateCommand({
+            TableName: DYNAMO_TABLE,
+            Key: { userId },
+            UpdateExpression: 'SET isPaid = :paid, subscriptionEnd = :subEnd, subscriptionStatus = :status, lastRenewal = :now, subscriptionPlan = :plan, credits = if_not_exists(credits, :zero) + :credits',
+            ExpressionAttributeValues: {
+              ':paid': true,
+              ':subEnd': subEnd.toISOString(),
+              ':status': 'active',
+              ':now': new Date().toISOString(),
+              ':plan': planKey,
+              ':credits': creditsToAdd,
+              ':zero': 0,
+            },
+          }));
+          console.log(`Webhook: Subscription [${planKey}] charged - ${creditsToAdd} credits added for ${userId}`);
+        } else {
+          // Legacy subscription (developer mode) - just set isPaid
+          await dynamoClient.send(new UpdateCommand({
+            TableName: DYNAMO_TABLE,
+            Key: { userId },
+            UpdateExpression: 'SET isPaid = :paid, subscriptionEnd = :subEnd, subscriptionStatus = :status, lastRenewal = :now',
+            ExpressionAttributeValues: {
+              ':paid': true,
+              ':subEnd': subEnd.toISOString(),
+              ':status': 'active',
+              ':now': new Date().toISOString(),
+            },
+          }));
+          console.log('Webhook: Legacy subscription renewed for', userId);
+        }
       }
     }
 
@@ -616,8 +647,8 @@ app.post('/auth/login', async (req, res) => {
     } catch (e) {}
 
     if (!userData) {
-      userData = { userId: sub, email: userEmail, isPaid: false, credits: 45, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
-      console.log('New user created with 45 free credits:', userEmail);
+      userData = { userId: sub, email: userEmail, isPaid: false, credits: 20, createdAt: new Date().toISOString(), lastLogin: new Date().toISOString() };
+      console.log('New user created with 20 free credits:', userEmail);
       await dynamoClient.send(new PutCommand({ TableName: DYNAMO_TABLE, Item: userData }));
     } else {
       // Check monthly subscription expiry
@@ -729,71 +760,89 @@ app.get('/auth/me', verifyToken, async (req, res) => {
 // RAZORPAY PAYMENT ROUTES
 // ============================================
 
-// Auto-create monthly & yearly plans on startup
+// Auto-create subscription plans on startup
+// Legacy plan IDs
 let MONTHLY_PLAN_ID = process.env.RAZORPAY_MONTHLY_PLAN_ID || null;
 let YEARLY_PLAN_ID = process.env.RAZORPAY_YEARLY_PLAN_ID || null;
 
+// New subscription plan IDs
+const RAZORPAY_PLAN_IDS = {};
+
 (async () => {
-  if (MONTHLY_PLAN_ID) return;
   try {
-    const plans = await razorpay.plans.all({ count: 50 });
-    const existing = plans.items.find(p => p.item?.name === 'NEXUS AI Pro - Monthly' && p.item?.amount === PLAN_MONTHLY_PRICE);
-    if (existing) {
-      MONTHLY_PLAN_ID = existing.id;
-      console.log('Found existing monthly plan:', MONTHLY_PLAN_ID);
-    } else {
-      const plan = await razorpay.plans.create({
-        period: 'monthly',
-        interval: 1,
-        item: {
-          name: 'NEXUS AI Pro - Monthly',
-          amount: PLAN_MONTHLY_PRICE,
-          currency: 'INR',
-          description: 'Monthly access to NEXUS AI Pro',
-        },
-      });
-      MONTHLY_PLAN_ID = plan.id;
-      console.log('Created monthly plan:', MONTHLY_PLAN_ID);
-    }
-  } catch (err) {
-    console.error('Failed to setup monthly Razorpay plan:', err.message);
-  }
-  // Yearly plan
-  if (!YEARLY_PLAN_ID) {
-    try {
-      const plans = await razorpay.plans.all({ count: 50 });
-      const existing = plans.items.find(p => p.item?.name === 'NEXUS AI Pro - Yearly' && p.item?.amount === PLAN_YEARLY_PRICE);
+    const allPlans = await razorpay.plans.all({ count: 100 });
+
+    // Create/find each subscription plan
+    for (const [key, planConfig] of Object.entries(SUBSCRIPTION_PLANS)) {
+      const existing = allPlans.items.find(p => p.item?.name === planConfig.name && p.item?.amount === planConfig.price);
       if (existing) {
-        YEARLY_PLAN_ID = existing.id;
-        console.log('Found existing yearly plan:', YEARLY_PLAN_ID);
+        RAZORPAY_PLAN_IDS[key] = existing.id;
+        console.log(`Found existing plan [${key}]:`, existing.id);
       } else {
         const plan = await razorpay.plans.create({
-          period: 'yearly',
-          interval: 1,
+          period: planConfig.period,
+          interval: planConfig.interval,
           item: {
-            name: 'NEXUS AI Pro - Yearly',
-            amount: PLAN_YEARLY_PRICE,
+            name: planConfig.name,
+            amount: planConfig.price,
             currency: 'INR',
-            description: 'Yearly access to NEXUS AI Pro',
+            description: `${planConfig.name} - NEXUS AI Pro Subscription`,
           },
         });
-        YEARLY_PLAN_ID = plan.id;
-        console.log('Created yearly plan:', YEARLY_PLAN_ID);
+        RAZORPAY_PLAN_IDS[key] = plan.id;
+        console.log(`Created plan [${key}]:`, plan.id);
       }
-    } catch (err) {
-      console.error('Failed to setup yearly Razorpay plan:', err.message);
     }
+
+    // Legacy: find old monthly plan for existing subscribers
+    const legacyMonthly = allPlans.items.find(p => p.item?.name === 'NEXUS AI Pro - Monthly');
+    if (legacyMonthly) MONTHLY_PLAN_ID = legacyMonthly.id;
+    const legacyYearly = allPlans.items.find(p => p.item?.name === 'NEXUS AI Pro - Yearly');
+    if (legacyYearly) YEARLY_PLAN_ID = legacyYearly.id;
+
+    console.log('All subscription plans ready:', Object.keys(RAZORPAY_PLAN_IDS));
+  } catch (err) {
+    console.error('Failed to setup Razorpay plans:', err.message);
   }
 })();
 
-// Create Subscription (monthly or yearly)
+// Create Subscription (starter_monthly / pro_monthly / ultra_monthly + legacy monthly/yearly)
 app.post('/api/payment/create-order', verifyToken, async (req, res) => {
   const { plan } = req.body;
 
   try {
-    if (plan === 'monthly') {
-      if (!MONTHLY_PLAN_ID) return res.status(500).json({ error: 'Monthly plan not configured yet. Try again in a moment.' });
+    // New subscription plans with credit refresh
+    if (SUBSCRIPTION_PLANS[plan]) {
+      const planConfig = SUBSCRIPTION_PLANS[plan];
+      const rzpPlanId = RAZORPAY_PLAN_IDS[plan];
+      if (!rzpPlanId) return res.status(500).json({ error: 'Plan not configured yet. Try again in a moment.' });
 
+      const subscription = await razorpay.subscriptions.create({
+        plan_id: rzpPlanId,
+        total_count: 120,
+        quantity: 1,
+        customer_notify: 1,
+        notes: {
+          userId: req.user.sub,
+          email: req.user.email,
+          plan: plan,
+          credits: String(planConfig.credits),
+          type: 'credit_subscription',
+        },
+      });
+
+      res.json({
+        type: 'subscription',
+        subscriptionId: subscription.id,
+        keyId: RAZORPAY_KEY_ID,
+        planName: planConfig.name,
+        plan: plan,
+        amount: planConfig.price,
+        credits: planConfig.credits,
+      });
+    }
+    // Legacy: monthly/yearly (developer mode subscriptions)
+    else if (plan === 'monthly' && MONTHLY_PLAN_ID) {
       const subscription = await razorpay.subscriptions.create({
         plan_id: MONTHLY_PLAN_ID,
         total_count: 120,
@@ -801,7 +850,6 @@ app.post('/api/payment/create-order', verifyToken, async (req, res) => {
         customer_notify: 1,
         notes: { userId: req.user.sub, email: req.user.email, plan: 'monthly' },
       });
-
       res.json({
         type: 'subscription',
         subscriptionId: subscription.id,
@@ -810,8 +858,7 @@ app.post('/api/payment/create-order', verifyToken, async (req, res) => {
         plan: 'monthly',
         amount: PLAN_MONTHLY_PRICE,
       });
-    } else if (plan === 'yearly') {
-      if (!YEARLY_PLAN_ID) return res.status(500).json({ error: 'Yearly plan not configured yet. Try again in a moment.' });
+    } else if (plan === 'yearly' && YEARLY_PLAN_ID) {
       const subscription = await razorpay.subscriptions.create({
         plan_id: YEARLY_PLAN_ID,
         total_count: 10,
@@ -828,7 +875,7 @@ app.post('/api/payment/create-order', verifyToken, async (req, res) => {
         amount: PLAN_YEARLY_PRICE,
       });
     } else {
-      return res.status(400).json({ error: 'Invalid plan. Choose monthly or yearly.' });
+      return res.status(400).json({ error: 'Invalid plan.' });
     }
   } catch (err) {
     console.error('Razorpay create error:', err.error || err.message || err);
@@ -843,7 +890,8 @@ app.post('/api/payment/verify', verifyToken, async (req, res) => {
 
   // Signature differs for order vs subscription
   let signaturePayload;
-  if ((plan === 'monthly' || plan === 'yearly') && razorpay_subscription_id) {
+  if (razorpay_subscription_id) {
+    // All subscriptions (credit subs + legacy monthly/yearly): payment_id|subscription_id
     signaturePayload = `${razorpay_payment_id}|${razorpay_subscription_id}`;
   } else {
     signaturePayload = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -861,7 +909,31 @@ app.post('/api/payment/verify', verifyToken, async (req, res) => {
   try {
     const now = new Date();
 
-    if (plan === 'monthly' || plan === 'yearly') {
+    // New credit subscription plans
+    if (SUBSCRIPTION_PLANS[plan]) {
+      const subEnd = new Date(now);
+      subEnd.setMonth(subEnd.getMonth() + 1);
+      const creditsToAdd = SUBSCRIPTION_PLANS[plan].credits;
+
+      await dynamoClient.send(new UpdateCommand({
+        TableName: DYNAMO_TABLE,
+        Key: { userId: req.user.sub },
+        UpdateExpression: 'SET isPaid = :paid, paymentId = :pid, paymentPlan = :plan, paidAt = :now, razorpaySubscriptionId = :subId, subscriptionEnd = :subEnd, subscriptionStatus = :status, subscriptionPlan = :subPlan, credits = if_not_exists(credits, :zero) + :credits',
+        ExpressionAttributeValues: {
+          ':paid': true, ':pid': razorpay_payment_id, ':plan': plan,
+          ':now': now.toISOString(), ':subId': razorpay_subscription_id,
+          ':subEnd': subEnd.toISOString(), ':status': 'active',
+          ':subPlan': plan, ':credits': creditsToAdd, ':zero': 0,
+        },
+      }));
+      // Fetch updated total credits
+      const updatedUser = await dynamoClient.send(new GetCommand({ TableName: DYNAMO_TABLE, Key: { userId: req.user.sub } }));
+      const totalCredits = updatedUser.Item?.credits || creditsToAdd;
+      console.log(`Payment verified: ${req.user.email} subscribed to ${plan}, ${creditsToAdd} credits added (total: ${totalCredits})`);
+      res.json({ success: true, message: `${creditsToAdd.toLocaleString()} credits added! Subscription active.`, isPaid: true, plan, creditsAdded: creditsToAdd, credits: totalCredits });
+    }
+    // Legacy monthly/yearly (developer mode)
+    else if (plan === 'monthly' || plan === 'yearly') {
       const subEnd = new Date(now);
       if (plan === 'yearly') {
         subEnd.setFullYear(subEnd.getFullYear() + 1);
@@ -879,6 +951,8 @@ app.post('/api/payment/verify', verifyToken, async (req, res) => {
           ':subEnd': subEnd.toISOString(), ':status': 'active',
         },
       }));
+      console.log('Payment verified:', req.user.email, plan, razorpay_payment_id);
+      res.json({ success: true, message: 'Account activated!', isPaid: true, plan });
     } else {
       // Legacy lifetime one-time payment
       await dynamoClient.send(new UpdateCommand({
@@ -890,10 +964,9 @@ app.post('/api/payment/verify', verifyToken, async (req, res) => {
           ':plan': 'lifetime', ':now': now.toISOString(),
         },
       }));
+      console.log('Payment verified:', req.user.email, plan, razorpay_payment_id);
+      res.json({ success: true, message: 'Account activated!', isPaid: true, plan });
     }
-
-    console.log('Payment verified:', req.user.email, plan, razorpay_payment_id);
-    res.json({ success: true, message: 'Account activated!', isPaid: true, plan });
   } catch (err) {
     console.error('Activation error:', err);
     res.status(500).json({ error: 'Payment verified but activation failed. Contact support.' });
@@ -1069,10 +1142,13 @@ app.post('/api/credits/add', (req, res) => {
 app.post('/api/credits/purchase', verifyToken, async (req, res) => {
   const { packId } = req.body;
   const CREDIT_PACKS = {
-    starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },   // ₹149
-    popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },   // ₹499
-    pro:      { credits: 1500, price: 99900,  name: 'Pro Pack - 1,500 Credits' },     // ₹999
-    ultimate: { credits: 5000, price: 249900, name: 'Ultimate Pack - 5,000 Credits' }, // ₹2,499
+    large:    { credits: 500,  price: 49900,  name: 'Large Pack - 500 Credits' },    // ₹499
+    mega:     { credits: 1800, price: 149900, name: 'Mega Pack - 1,800 Credits' },   // ₹1,499
+    // Legacy packs (honor old purchases)
+    starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },
+    popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },
+    pro:      { credits: 1500, price: 99900,  name: 'Pro Pack - 1,500 Credits' },
+    ultimate: { credits: 5000, price: 249900, name: 'Ultimate Pack - 5,000 Credits' },
   };
 
   const pack = CREDIT_PACKS[packId];
@@ -1103,6 +1179,9 @@ app.post('/api/credits/verify', verifyToken, async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packId } = req.body;
 
   const CREDIT_PACKS = {
+    large:    { credits: 500 },
+    mega:     { credits: 1800 },
+    // Legacy packs
     starter:  { credits: 100 },
     popular:  { credits: 500 },
     pro:      { credits: 1500 },

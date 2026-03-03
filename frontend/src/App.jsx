@@ -736,38 +736,32 @@ function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
 }
 // ─── Credit Shop Modal ───
 function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, onPaymentSuccess }) {
-  const [activeTab, setActiveTab] = useState('credits');
+  const [activeTab, setActiveTab] = useState('subscriptions');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [timeLeft, setTimeLeft] = useState('');
   const [selectedPlan, setSelectedPlan] = useState('yearly');
+
+  // ── Subscription Plans (monthly auto-renew with credits) ──
+  const subPlans = [
+    { id: 'starter_monthly', name: 'Starter', price: 999, credits: 1000, color: '#60a5fa', icon: '⚡', perCredit: '₹0.99' },
+    { id: 'pro_monthly', name: 'Pro', price: 1999, credits: 2500, color: '#a78bfa', icon: '🚀', badge: 'POPULAR', perCredit: '₹0.80' },
+    { id: 'ultra_monthly', name: 'Ultra', price: 2999, credits: 5000, color: '#fbbf24', icon: '💎', perCredit: '₹0.60' },
+  ];
+
+  // ── Pay-as-you-go Credit Packs (one-time, no expiry) ──
   const packs = [
-    { id: 'starter', credits: 100, price: 149, originalPrice: 189, label: 'Starter', color: '#60a5fa', icon: '⚡' },
-    { id: 'popular', credits: 500, price: 499, originalPrice: 629, label: 'Popular', color: '#22d47b', icon: '🔥', badge: 'BEST VALUE' },
-    { id: 'pro', credits: 1500, price: 999, originalPrice: 1249, label: 'Pro', color: '#a78bfa', icon: '🚀' },
-    { id: 'ultimate', credits: 5000, price: 2499, originalPrice: 3129, label: 'Ultimate', color: '#fbbf24', icon: '💎' },
+    { id: 'large', credits: 500, price: 499, label: 'Large', color: '#22d47b', icon: '🔥', perCredit: '₹1.00' },
+    { id: 'mega', credits: 1800, price: 1499, label: 'Mega', color: '#f59e0b', icon: '💰', badge: 'BEST VALUE', perCredit: '₹0.83' },
   ];
+
+  // ── Developer Mode Plans (BYOK) ──
   const devPlans = [
-    { id: 'yearly', name: 'Yearly', price: '₹2,999', originalPrice: '₹3,749', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
-    { id: 'monthly', name: 'Monthly', price: '₹499', originalPrice: '₹629', priceNum: 499, desc: 'Per month', badge: null },
+    { id: 'yearly', name: 'Yearly', price: '₹2,999', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
+    { id: 'monthly', name: 'Monthly', price: '₹499', priceNum: 499, desc: 'Per month', badge: null },
   ];
-  useEffect(() => {
-    const target = new Date('2026-03-10T23:59:59+05:30').getTime();
-    const tick = () => {
-      const now = Date.now();
-      const diff = target - now;
-      if (diff <= 0) { setTimeLeft('Offer expired'); return; }
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+
+  // ── Buy credit pack (PAYG) ──
   const handleBuy = async (pack) => {
     setError(''); setLoading(true); setSuccess('');
     try {
@@ -779,14 +773,9 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to create order');
       const order = await res.json();
       const options = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: 'INR',
-        name: 'NEXUS AI Pro',
-        description: order.name,
-        order_id: order.orderId,
-        prefill: { email: '' },
-        theme: { color: '#22d47b' },
+        key: order.keyId, amount: order.amount, currency: 'INR',
+        name: 'NEXUS AI Pro', description: order.name, order_id: order.orderId,
+        prefill: { email: user?.email || '' }, theme: { color: '#22d47b' },
         modal: { ondismiss: () => setLoading(false) },
         handler: async function (response) {
           try {
@@ -805,50 +794,37 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
               setSuccess(`${pack.credits.toLocaleString()} credits added!`);
               onCreditsAdded(result.credits);
               setTimeout(() => onClose(), 1500);
-            } else {
-              setError(result.error || 'Verification failed');
-            }
-          } catch (err) {
-            setError('Payment verification failed. Contact support.');
-          }
+            } else { setError(result.error || 'Verification failed'); }
+          } catch (err) { setError('Payment verification failed. Contact support.'); }
           setLoading(false);
         },
       };
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp) => {
-        setError(resp.error?.description || 'Payment failed.');
-        setLoading(false);
-      });
+      rzp.on('payment.failed', (resp) => { setError(resp.error?.description || 'Payment failed.'); setLoading(false); });
       rzp.open();
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); setLoading(false); }
   };
-  const handleSubscribe = async () => {
+
+  // ── Subscribe (new credit subscriptions OR legacy dev mode) ──
+  const handleSubscribe = async (planId) => {
     setError(''); setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-auth-token': accessToken },
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({ plan: planId }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to create order');
       const order = await res.json();
       const options = {
-        key: order.keyId,
-        name: 'NEXUS AI Pro',
-        description: order.planName,
-        prefill: { email: user?.email || '' },
-        theme: { color: '#a78bfa' },
+        key: order.keyId, name: 'NEXUS AI Pro', description: order.planName,
+        prefill: { email: user?.email || '' }, theme: { color: '#a78bfa' },
         modal: { ondismiss: () => setLoading(false) },
       };
       if (order.type === 'subscription') {
         options.subscription_id = order.subscriptionId;
       } else {
-        options.amount = order.amount;
-        options.currency = order.currency;
-        options.order_id = order.orderId;
+        options.amount = order.amount; options.currency = order.currency; options.order_id = order.orderId;
       }
       options.handler = async function (response) {
         try {
@@ -860,79 +836,104 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               razorpay_subscription_id: response.razorpay_subscription_id || order.subscriptionId || null,
-              plan: selectedPlan,
+              plan: planId,
             }),
           });
           const result = await verifyRes.json();
           if (result.success) {
-            if (onPaymentSuccess) onPaymentSuccess(selectedPlan);
-            onClose();
-          } else {
-            setError(result.error || 'Verification failed');
-          }
-        } catch (err) {
-          setError('Payment verification failed. Contact support.');
-        }
+            if (result.creditsAdded) {
+              setSuccess(`${result.creditsAdded.toLocaleString()} credits added!`);
+              if (result.credits != null) { onCreditsAdded(result.credits); }
+              else { fetch(`${API_BASE}/api/credits`, { headers: { 'x-auth-token': accessToken } }).then(r => r.json()).then(d => { if (d.credits != null) onCreditsAdded(d.credits); }).catch(() => {}); }
+              setTimeout(() => onClose(), 1500);
+            } else {
+              if (onPaymentSuccess) onPaymentSuccess(planId);
+              onClose();
+            }
+          } else { setError(result.error || 'Verification failed'); }
+        } catch (err) { setError('Payment verification failed. Contact support.'); }
         setLoading(false);
       };
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp) => {
-        setError(resp.error?.description || 'Payment failed.');
-        setLoading(false);
-      });
+      rzp.on('payment.failed', (resp) => { setError(resp.error?.description || 'Payment failed.'); setLoading(false); });
       rzp.open();
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); setLoading(false); }
   };
-  const tabStyle = (active) => ({ flex: 1, padding: '10px 0', textAlign: 'center', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderBottom: active ? '2px solid #22d47b' : '2px solid transparent', color: active ? '#fff' : '#666', transition: 'all 0.2s', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #22d47b' : '2px solid rgba(255,255,255,0.06)' });
+
+  const tabStyle = (active) => ({ flex: 1, padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: active ? '#fff' : '#666', transition: 'all 0.2s', background: 'transparent', border: 'none', borderBottom: active ? '2px solid #22d47b' : '2px solid rgba(255,255,255,0.06)' });
+
   return (
     <div style={S.overlay} onClick={onClose}>
-      <div style={{ ...S.card, maxWidth: 480, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
+      <div style={{ ...S.card, maxWidth: 520, position: 'relative', margin: 0 }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={S.closeBtn}>✕</button>
         <div style={{ textAlign: 'center', marginBottom: 12 }}>
-          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>Get Started</h2>
-          <p style={{ color: '#888', fontSize: 12, margin: 0 }}>Choose how you want to use NEXUS AI Pro</p>
+          <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>Get Credits</h2>
+          <p style={{ color: '#888', fontSize: 12, margin: 0 }}>Balance: <span style={{ color: '#22d47b', fontWeight: 600 }}>{(credits || 0).toLocaleString()} credits</span></p>
         </div>
+
         {/* Tabs */}
-        <div style={{ display: 'flex', marginBottom: 16 }}>
-          <button onClick={() => { setActiveTab('credits'); setError(''); }} style={tabStyle(activeTab === 'credits')}>💳 Buy Credits</button>
-          <button onClick={() => { setActiveTab('developer'); setError(''); }} style={tabStyle(activeTab === 'developer')}>🔑 Developer Mode</button>
+        <div style={{ display: 'flex', marginBottom: 14 }}>
+          <button onClick={() => { setActiveTab('subscriptions'); setError(''); }} style={tabStyle(activeTab === 'subscriptions')}>📅 Monthly Plans</button>
+          <button onClick={() => { setActiveTab('credits'); setError(''); }} style={tabStyle(activeTab === 'credits')}>💳 Credit Packs</button>
+          <button onClick={() => { setActiveTab('developer'); setError(''); }} style={tabStyle(activeTab === 'developer')}>🔑 Developer</button>
         </div>
-        {/* Countdown Timer */}
-        <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(234,179,8,0.12))', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '8px 12px', marginBottom: 14, textAlign: 'center' }}>
-          <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, letterSpacing: '0.05em' }}>🔥 LAUNCH OFFER — Ends March 10 · <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#fff', letterSpacing: 1 }}>{timeLeft}</span></div>
-        </div>
+
         {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#ef4444', fontSize: 13 }}>{error}</div>}
         {success && <div style={{ background: 'rgba(34,212,123,0.1)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, color: '#22d47b', fontSize: 13, fontWeight: 600 }}>✓ {success}</div>}
 
-        {/* Credits Tab */}
-        {activeTab === 'credits' && <>
-          <p style={{ color: '#888', fontSize: 12, margin: '0 0 10px', textAlign: 'center' }}>Balance: <span style={{ color: '#22d47b', fontWeight: 600 }}>{credits.toLocaleString()} credits</span></p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {packs.map(p => (
-              <div key={p.id} onClick={() => !loading && handleBuy(p)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14, cursor: loading ? 'wait' : 'pointer', position: 'relative', transition: 'all 0.2s', textAlign: 'center' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = p.color; e.currentTarget.style.background = `${p.color}10`; }}
+        {/* ─── Subscriptions Tab ─── */}
+        {activeTab === 'subscriptions' && <>
+          <p style={{ color: '#888', fontSize: 11, margin: '0 0 12px', textAlign: 'center' }}>Auto-renewing monthly plans — credits refresh each month</p>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            {subPlans.map(plan => (
+              <div key={plan.id} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 10px', textAlign: 'center', position: 'relative', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = plan.color; e.currentTarget.style.background = `${plan.color}10`; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}>
-                {p.badge && <span style={{ position: 'absolute', top: -8, right: -8, fontSize: 9, background: p.color, color: '#000', padding: '2px 6px', borderRadius: 6, fontWeight: 700 }}>{p.badge}</span>}
-                <div style={{ fontSize: 24, marginBottom: 4 }}>{p.icon}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{p.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: p.color, marginBottom: 1 }}>{p.credits.toLocaleString()}</div>
-                <div style={{ fontSize: 10, color: '#888', marginBottom: 6 }}>credits</div>
-                <div style={{ fontSize: 11, color: '#666', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>₹{p.price.toLocaleString()}</div>
-                <div style={{ fontSize: 9, color: '#22d47b', marginTop: 2, fontWeight: 600 }}>Save {Math.round((1 - p.price / p.originalPrice) * 100)}%</div>
+                {plan.badge && <span style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', fontSize: 9, background: `linear-gradient(135deg, ${plan.color}, ${plan.color}cc)`, color: '#000', padding: '2px 8px', borderRadius: 6, fontWeight: 700, whiteSpace: 'nowrap' }}>{plan.badge}</span>}
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{plan.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{plan.name}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: plan.color }}>{plan.credits.toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: '#888', marginBottom: 6 }}>credits/month</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>₹{plan.price.toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>/month</div>
+                <div style={{ fontSize: 9, color: plan.color, fontWeight: 600, marginBottom: 10 }}>{plan.perCredit}/credit</div>
+                <button onClick={() => !loading && handleSubscribe(plan.id)} disabled={loading}
+                  style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: 'none', background: `linear-gradient(135deg, ${plan.color}, ${plan.color}bb)`, color: '#000', fontSize: 12, fontWeight: 700, cursor: loading ? 'wait' : 'pointer', transition: 'opacity 0.2s', opacity: loading ? 0.6 : 1 }}>
+                  {loading ? '...' : 'Subscribe'}
+                </button>
               </div>
             ))}
           </div>
-          <p style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>Pay per use · Credits never expire · Razorpay secure</p>
+          <p style={{ color: '#555', fontSize: 10, textAlign: 'center', margin: 0 }}>Cancel anytime · Credits don't expire while subscribed · Auto-renews monthly</p>
         </>}
 
-        {/* Developer Mode Tab */}
+        {/* ─── Credit Packs Tab (PAYG) ─── */}
+        {activeTab === 'credits' && <>
+          <p style={{ color: '#888', fontSize: 11, margin: '0 0 12px', textAlign: 'center' }}>One-time purchase — no subscription needed</p>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+            {packs.map(p => (
+              <div key={p.id} onClick={() => !loading && handleBuy(p)} style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '20px 14px', cursor: loading ? 'wait' : 'pointer', position: 'relative', transition: 'all 0.2s', textAlign: 'center' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = p.color; e.currentTarget.style.background = `${p.color}10`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}>
+                {p.badge && <span style={{ position: 'absolute', top: -8, right: -8, fontSize: 9, background: p.color, color: '#000', padding: '2px 6px', borderRadius: 6, fontWeight: 700 }}>{p.badge}</span>}
+                <div style={{ fontSize: 28, marginBottom: 6 }}>{p.icon}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 4 }}>{p.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: p.color, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>credits</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>₹{p.price.toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: p.color, marginTop: 4, fontWeight: 600 }}>{p.perCredit}/credit</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 8 }}>
+            <p style={{ color: '#a78bfa', fontSize: 11, margin: 0, textAlign: 'center' }}>💡 Tip: Monthly plans offer better value — Starter gives 1,000 credits for ₹999 (₹0.99/credit)</p>
+          </div>
+          <p style={{ color: '#555', fontSize: 10, textAlign: 'center', margin: 0 }}>Pay once · Credits never expire · Razorpay secure</p>
+        </>}
+
+        {/* ─── Developer Mode Tab ─── */}
         {activeTab === 'developer' && <>
           <p style={{ color: '#888', fontSize: 12, margin: '0 0 12px', textAlign: 'center' }}>Use your own Replicate API key — unlimited generations</p>
-          {/* Plan selector */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             {devPlans.map(plan => (
               <div key={plan.id} onClick={() => setSelectedPlan(plan.id)} style={{
@@ -943,35 +944,26 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
               }}>
                 {plan.badge && <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #a78bfa, #7c3aed)', padding: '2px 10px', borderRadius: 10, fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', color: '#fff' }}>{plan.badge}</div>}
                 <div style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600, marginBottom: 4 }}>{plan.name}</div>
-                <div style={{ fontSize: 12, color: '#666', textDecoration: 'line-through' }}>{plan.originalPrice}</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: '#fff' }}>{plan.price}</div>
                 <div style={{ fontSize: 12, color: '#888' }}>{plan.desc}</div>
               </div>
             ))}
           </div>
-          {/* Features comparison */}
           <div style={{ textAlign: 'left', marginBottom: 14 }}>
-            {(selectedPlan === 'yearly' ? [
+            {[
               { text: 'All 63+ AI models', ok: true },
               { text: 'Unlimited generations', ok: true },
-              { text: 'NSFW models (SDXL, Wan, etc.)', ok: true },
-              { text: 'Wan 2.2 & 2.5 video models', ok: true },
-              { text: 'Train custom LoRA models', ok: true },
+              { text: 'NSFW models (SDXL, Wan, etc.)', ok: selectedPlan === 'yearly' },
+              { text: 'Wan 2.2 & 2.5 video models', ok: selectedPlan === 'yearly' },
+              { text: 'Train custom LoRA models', ok: selectedPlan === 'yearly' },
               { text: 'Bring your own API key', ok: true },
-            ] : [
-              { text: 'All basic AI models', ok: true },
-              { text: 'Unlimited generations', ok: true },
-              { text: 'No NSFW models', ok: false },
-              { text: 'No Wan 2.2/2.5 video models', ok: false },
-              { text: 'No custom LoRA training', ok: false },
-              { text: 'Bring your own API key', ok: true },
-            ]).map(f => (
+            ].map(f => (
               <div key={f.text} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: f.ok ? '#ccc' : '#888', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: f.ok ? '#4ade80' : '#f87171', fontSize: 13, width: 16, textAlign: 'center' }}>{f.ok ? '✓' : '✗'}</span>{f.text}
               </div>
             ))}
           </div>
-          <button onClick={handleSubscribe} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, fontSize: 14, padding: 14, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)' }}>
+          <button onClick={() => handleSubscribe(selectedPlan)} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, fontSize: 14, padding: 14, background: 'linear-gradient(135deg, #a78bfa, #7c3aed)' }}>
             {loading ? 'Processing...' : `Subscribe ${devPlans.find(p => p.id === selectedPlan).price} →`}
           </button>
           <p style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 10, marginBottom: 0 }}>Setup API key in Settings after subscribing</p>
