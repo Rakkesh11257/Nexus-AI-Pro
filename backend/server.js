@@ -1142,8 +1142,8 @@ app.post('/api/credits/add', (req, res) => {
 app.post('/api/credits/purchase', verifyToken, async (req, res) => {
   const { packId } = req.body;
   const CREDIT_PACKS = {
-    large:    { credits: 500,  price: 49900,  name: 'Large Pack - 500 Credits' },    // ₹499
-    mega:     { credits: 1800, price: 149900, name: 'Mega Pack - 1,800 Credits' },   // ₹1,499
+    large:    { credits: 1500, price: 149900, name: 'Large Pack - 1,500 Credits' },   // ₹1,499 ($17.99)
+    mega:     { credits: 3500, price: 299900, name: 'Mega Pack - 3,500 Credits' },   // ₹2,999 ($34.99)
     // Legacy packs (honor old purchases)
     starter:  { credits: 100,  price: 14900,  name: 'Starter Pack - 100 Credits' },
     popular:  { credits: 500,  price: 49900,  name: 'Popular Pack - 500 Credits' },
@@ -1179,8 +1179,8 @@ app.post('/api/credits/verify', verifyToken, async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packId } = req.body;
 
   const CREDIT_PACKS = {
-    large:    { credits: 500 },
-    mega:     { credits: 1800 },
+    large:    { credits: 1500 },
+    mega:     { credits: 3500 },
     // Legacy packs
     starter:  { credits: 100 },
     popular:  { credits: 500 },

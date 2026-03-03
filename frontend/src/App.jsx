@@ -486,8 +486,8 @@ function PaywallModal({ onClose, accessToken, user, onPaymentSuccess }) {
   const [error, setError] = useState('');
 
   const plans = [
-    { id: 'yearly', name: 'Yearly', price: '₹2,999', originalPrice: '₹9,999', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
-    { id: 'monthly', name: 'Monthly', price: '₹499', originalPrice: '₹999', priceNum: 499, desc: 'Per month', badge: null },
+    { id: 'yearly', name: 'Yearly', price: '$35', originalPrice: '$119', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
+    { id: 'monthly', name: 'Monthly', price: '$6', originalPrice: '$12', priceNum: 499, desc: 'Per month', badge: null },
   ];
 
   const handlePayment = async () => {
@@ -712,17 +712,17 @@ function UpgradeModal({ onClose, accessToken, user, onUpgradeSuccess }) {
             </div>
           </div>
           <div style={{ background: '#0d0d1a', borderRadius: 12, padding: 16, marginBottom: 16, border: '2px solid #f59e0b' }}>
-            <div style={{ fontSize: 14, color: '#888', textDecoration: 'line-through', marginBottom: 2 }}>₹9,999/year</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>₹2,500</div>
+            <div style={{ fontSize: 14, color: '#888', textDecoration: 'line-through', marginBottom: 2 }}>$119/year</div>
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>$30</div>
             <div style={{ fontSize: 13, color: '#888' }}>One-time upgrade fee</div>
-            <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>Then ₹2,999/year when you renew</div>
+            <div style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>Then $35/year when you renew</div>
           </div>
           {/* UPI Tip */}
           <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, textAlign: 'center' }}>
             <span style={{ fontSize: 12, color: '#60a5fa' }}>💡 For UPI payments, we recommend using <strong>Google Pay</strong> or <strong>Paytm</strong> for a smoother experience</span>
           </div>
           <button onClick={handleUpgrade} disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, fontSize: 16, padding: 16, background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-            {loading ? 'Processing...' : 'Upgrade Now → ₹2,500'}
+            {loading ? 'Processing...' : 'Upgrade Now → $30'}
           </button>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
             {['🔒 Secure Payment', '💳 UPI/Cards/Netbanking', '⚡ Instant Access'].map(t => (
@@ -744,21 +744,21 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
 
   // ── Subscription Plans (monthly auto-renew with credits) ──
   const subPlans = [
-    { id: 'starter_monthly', name: 'Starter', price: 999, credits: 1000, color: '#60a5fa', icon: '⚡', perCredit: '₹0.99' },
-    { id: 'pro_monthly', name: 'Pro', price: 1999, credits: 2500, color: '#a78bfa', icon: '🚀', badge: 'POPULAR', perCredit: '₹0.80' },
-    { id: 'ultra_monthly', name: 'Ultra', price: 2999, credits: 5000, color: '#fbbf24', icon: '💎', perCredit: '₹0.60' },
+    { id: 'starter_monthly', name: 'Starter', price: 999, credits: 1000, color: '#60a5fa', icon: '⚡', perCredit: '$0.012', usdPrice: '$12' },
+    { id: 'pro_monthly', name: 'Pro', price: 1999, credits: 2500, color: '#a78bfa', icon: '🚀', badge: 'POPULAR', perCredit: '$0.010', usdPrice: '$24' },
+    { id: 'ultra_monthly', name: 'Ultra', price: 2999, credits: 5000, color: '#fbbf24', icon: '💎', perCredit: '$0.007', usdPrice: '$35' },
   ];
 
   // ── Pay-as-you-go Credit Packs (one-time, no expiry) ──
   const packs = [
-    { id: 'large', credits: 500, price: 499, label: 'Large', color: '#22d47b', icon: '🔥', perCredit: '₹1.00' },
-    { id: 'mega', credits: 1800, price: 1499, label: 'Mega', color: '#f59e0b', icon: '💰', badge: 'BEST VALUE', perCredit: '₹0.83' },
+    { id: 'large', credits: 1500, price: 1499, label: 'Large', color: '#22d47b', icon: '🔥', perCredit: '$0.012', usdPrice: '$18' },
+    { id: 'mega', credits: 3500, price: 2999, label: 'Mega', color: '#f59e0b', icon: '💰', badge: 'BEST VALUE', perCredit: '$0.010', usdPrice: '$35' },
   ];
 
   // ── Developer Mode Plans (BYOK) ──
   const devPlans = [
-    { id: 'yearly', name: 'Yearly', price: '₹2,999', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
-    { id: 'monthly', name: 'Monthly', price: '₹499', priceNum: 499, desc: 'Per month', badge: null },
+    { id: 'yearly', name: 'Yearly', price: '$35', priceNum: 2999, desc: 'Per year', badge: 'BEST VALUE' },
+    { id: 'monthly', name: 'Monthly', price: '$6', priceNum: 499, desc: 'Per month', badge: null },
   ];
 
   // ── Buy credit pack (PAYG) ──
@@ -894,7 +894,7 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{plan.name}</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: plan.color }}>{plan.credits.toLocaleString()}</div>
                 <div style={{ fontSize: 10, color: '#888', marginBottom: 6 }}>credits/month</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>₹{plan.price.toLocaleString()}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{plan.usdPrice}</div>
                 <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>/month</div>
                 <div style={{ fontSize: 9, color: plan.color, fontWeight: 600, marginBottom: 10 }}>{plan.perCredit}/credit</div>
                 <button onClick={() => !loading && handleSubscribe(plan.id)} disabled={loading}
@@ -920,13 +920,13 @@ function CreditShopModal({ onClose, accessToken, credits, onCreditsAdded, user, 
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 4 }}>{p.label}</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: p.color, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
                 <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>credits</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>₹{p.price.toLocaleString()}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{p.usdPrice}</div>
                 <div style={{ fontSize: 10, color: p.color, marginTop: 4, fontWeight: 600 }}>{p.perCredit}/credit</div>
               </div>
             ))}
           </div>
           <div style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 8 }}>
-            <p style={{ color: '#a78bfa', fontSize: 11, margin: 0, textAlign: 'center' }}>💡 Tip: Monthly plans offer better value — Starter gives 1,000 credits for ₹999 (₹0.99/credit)</p>
+            <p style={{ color: '#a78bfa', fontSize: 11, margin: 0, textAlign: 'center' }}>💡 Tip: Monthly plans offer better value — Starter gives 1,000 credits for $12 ($0.012/credit)</p>
           </div>
           <p style={{ color: '#555', fontSize: 10, textAlign: 'center', margin: 0 }}>Pay once · Credits never expire · Razorpay secure</p>
         </>}
@@ -1043,10 +1043,10 @@ function SettingsModal({ apiKey, onSave, onClose, credits, onOpenCreditShop }) {
               <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: 10 }}>
                 <p style={{ margin: '0 0 4px', color: '#fbbf24', fontWeight: 600 }}>💡 How billing works</p>
                 <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• You only pay for what you generate — no monthly fees from Replicate</p>
-                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Image generation: ~$0.003 - $0.05 per image (~₹1 or less)</p>
-                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Video generation: ~$0.05 - $1.50 per video (~₹3 - ₹120)</p>
-                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Model training: ~$1 - $3 per training (~₹85 - ₹250)</p>
-                <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>• $5 (₹420) credit can generate ~100-1000+ images</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Image generation: ~$0.003 - $0.05 per image</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Video generation: ~$0.05 - $1.50 per video</p>
+                <p style={{ margin: '0 0 2px', fontSize: 12, color: '#aaa' }}>• Model training: ~$1 - $3 per training</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#aaa' }}>• $5 credit can generate ~100-1000+ images</p>
               </div>
             </div>
           )}
@@ -3648,7 +3648,7 @@ function App() {
               <div onClick={() => setShowUpgrade(true)} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: 16, marginBottom: 16, textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ fontSize: 32, marginBottom: 6 }}>🔒</div>
                 <div style={{ color: '#f59e0b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Yearly Plan Required</div>
-                <div style={{ color: '#888', fontSize: 13 }}>Custom model training is available on the Yearly plan. Tap here to upgrade for ₹2,500.</div>
+                <div style={{ color: '#888', fontSize: 13 }}>Custom model training is available on the Yearly plan. Tap here to upgrade for $30.</div>
               </div>
             )}
             <div style={{ background: 'rgba(34,212,123,0.08)', border: '1px solid rgba(34,212,123,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: '#aaa', lineHeight: 1.6 }}>
